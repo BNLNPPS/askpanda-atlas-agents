@@ -131,10 +131,12 @@ conda init zsh   # or 'conda init bash' if you use bash
 
 Then restart your terminal. Alternatively, download the installer directly from [github.com/conda-forge/miniforge](https://github.com/conda-forge/miniforge).
 
-### Apple Silicon (M1/M2/M3)
+### Apple Silicon
+
+> Use Python 3.12 or earlier. Python 3.13+ is not yet reliably supported by ML libraries such as PyTorch and sentence-transformers.
 
 ```bash
-conda create -n askpanda python=3.10 -y
+conda create -n askpanda python=3.12 -y
 conda activate askpanda
 conda install -c conda-forge -c pytorch pytorch cpuonly -y
 pip install sentence-transformers langchain langchain-community chromadb pdfminer.six python-docx
@@ -143,7 +145,7 @@ pip install sentence-transformers langchain langchain-community chromadb pdfmine
 ### Intel macOS
 
 ```bash
-conda create -n askpanda python=3.10 -y
+conda create -n askpanda python=3.12 -y
 conda activate askpanda
 conda install -c pytorch -c conda-forge pytorch -y
 pip install sentence-transformers langchain langchain-community chromadb pdfminer.six python-docx
