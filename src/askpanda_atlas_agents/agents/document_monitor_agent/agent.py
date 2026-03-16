@@ -58,12 +58,14 @@ class DocumentMonitorAgent(Agent):
         embedding_model_name: str = "all-MiniLM-L6-v2",
     ) -> None:
         super().__init__(name=name)
+        chroma_dir_abs = str(Path(chroma_dir).resolve())
+        LOG.info("ChromaDB persist directory: %s", chroma_dir_abs)
         self.directory = Path(directory)
         self.poll_interval_sec = poll_interval_sec
         self.chunk_size = chunk_size
         self.chunk_overlap = chunk_overlap
         self.checkpoint = CheckpointStore(checkpoint_file)
-        self.chroma = ChromaWrapper(persist_directory=chroma_dir)
+        self.chroma = ChromaWrapper(persist_directory=chroma_dir_abs)
         self.collection = self.chroma.get_or_create_collection(name)
         self._last_processed_file: Optional[str] = None
         self._last_error: Optional[str] = None
