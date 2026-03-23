@@ -7,14 +7,18 @@ name = "askpanda-atlas-agents"
 version = "0.1.0"
 description = "AskPanDA Agents"
 requires-python = ">=3.10"
+dependencies = [
+    "duckdb>=0.10",
+    "requests>=2.31",
+    "pyyaml>=6.0",
+    "pandas>=2.0",
+]
 
 [project.optional-dependencies]
 dev = [
     "flake8",
     "pytest",
     "pytest-cov",
-    "duckdb",
-    "requests",
 ]
 
 [tool.setuptools]
@@ -25,3 +29,4 @@ where = ["src"]
 
 [project.scripts]
 askpanda-document-monitor-agent = "askpanda_atlas_agents.agents.document_monitor_agent.cli:main"
+askpanda-ingestion-agent = "askpanda_atlas_agents.agents.ingestion_agent.cli:main"
