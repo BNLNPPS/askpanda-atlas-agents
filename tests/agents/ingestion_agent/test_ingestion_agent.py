@@ -1,5 +1,5 @@
 """Tests for the ingestion agent."""
-from askpanda_atlas_agents.agents.ingestion_agent.agent import (
+from bamboo_mcp_services.agents.ingestion_agent.agent import (
     IngestionAgent,
     IngestionAgentConfig,
     SourceConfig,

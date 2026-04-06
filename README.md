@@ -24,10 +24,6 @@
 
 ## Getting started
 
-For full setup instructions including conda environment creation, the DuckDB
-CLI install, pre-commit hooks, and the returning-developer quick-resume
-sequence, see **[CONTRIBUTING.md](./CONTRIBUTING.md)**.
-
 ### Install
 
 ```bash
@@ -47,7 +43,7 @@ pip install -e ".[dev]"
 ### Run the document monitor agent
 
 ```bash
-askpanda-document-monitor-agent --dir ./documents --poll-interval 10 --chroma-dir .chromadb
+bamboo-document-monitor --dir ./documents --poll-interval 10 --chroma-dir .chromadb
 ```
 
 Full documentation: [README-document_monitor_agent.md](./README-document_monitor_agent.md)
@@ -56,10 +52,10 @@ Full documentation: [README-document_monitor_agent.md](./README-document_monitor
 
 ```bash
 # Download all queues once and exit:
-askpanda-ingestion-agent --config src/askpanda_atlas_agents/resources/config/ingestion-agent.yaml --once
+bamboo-ingestion --config src/bamboo_mcp_services/resources/config/ingestion-agent.yaml --once
 
 # Run as a long-lived daemon (polls every 30 minutes):
-askpanda-ingestion-agent --config src/askpanda_atlas_agents/resources/config/ingestion-agent.yaml
+bamboo-ingestion --config src/bamboo_mcp_services/resources/config/ingestion-agent.yaml
 
 # Inspect what was collected:
 python scripts/dump_ingestion_db.py --count
@@ -72,10 +68,10 @@ Full documentation: [README-ingestion_agent.md](./README-ingestion_agent.md)
 
 ```bash
 # Load CRIC queuedata once and exit:
-askpanda-cric-agent --data cric.db --once
+bamboo-cric --data cric.db --once
 
 # Run as a long-lived daemon (re-reads file every 10 minutes):
-askpanda-cric-agent --data cric.db
+bamboo-cric --data cric.db
 
 # Inspect what was loaded:
 duckdb cric.db "SELECT COUNT(*) FROM queuedata"
@@ -170,7 +166,7 @@ Long-running agents run a scheduler loop calling `tick()`. Batch agents may run 
 A minimal no-op `dummy-agent` is included as a template and for validating the lifecycle:
 
 ```bash
-askpanda-dummy-agent --tick-interval 1.0
+bamboo-dummy --tick-interval 1.0
 ```
 
 Stop with Ctrl+C or SIGTERM. When adding a new agent, register its entry point in `pyproject.toml` under `[project.scripts]`.
@@ -180,7 +176,7 @@ Stop with Ctrl+C or SIGTERM. When adding a new agent, register its entry point i
 ## Repository layout
 
 ```
-askpanda-atlas-agents/
+bamboo-mcp-services/
 ├─ README.md
 ├─ README-document_monitor_agent.md
 ├─ README-ingestion_agent.md
@@ -190,7 +186,7 @@ askpanda-atlas-agents/
 ├─ scripts/
 │  └─ dump_ingestion_db.py       # inspect the ingestion database from the CLI
 ├─ src/
-│  └─ askpanda_atlas_agents/
+│  └─ bamboo_mcp_services/
 │     ├─ common/
 │     │  └─ storage/
 │     │     ├─ duckdb_store.py       # low-level DuckDB helpers
@@ -249,21 +245,21 @@ Agents draw on shared components in `common/`:
 
 ```bash
 pytest
-pytest --cov=askpanda_atlas_agents --cov-report=term-missing
+pytest --cov=bamboo_mcp_services --cov-report=term-missing
 ```
 
 ### Linting
 
 ```bash
 flake8 src tests
-pylint src/askpanda_atlas_agents
+pylint src/bamboo_mcp_services
 ```
 
 ### Common pitfalls
 
-**`ModuleNotFoundError: askpanda_atlas_agents`** — run `pip install -e .` from the repository root (where `pyproject.toml` lives).
+**`ModuleNotFoundError: bamboo_mcp_services`** — run `pip install -e .` from the repository root (where `pyproject.toml` lives).
 
-**Editable install fails** — confirm that `src/askpanda_atlas_agents/` exists and contains an `__init__.py`.
+**Editable install fails** — confirm that `src/bamboo_mcp_services/` exists and contains an `__init__.py`.
 
 ---
 

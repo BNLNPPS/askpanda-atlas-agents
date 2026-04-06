@@ -34,7 +34,7 @@ default — the path must be supplied explicitly so different deployments can
 direct output to different locations without editing the config file.
 
 ```bash
-askpanda-cric-agent --data /path/to/cric.db
+bamboo-cric --data /path/to/cric.db
 ```
 
 ### Table: `queuedata`
@@ -72,7 +72,7 @@ The full data dictionary — descriptions and DuckDB access examples for every
 column — is in:
 
 ```
-src/askpanda_atlas_agents/common/storage/schema_annotations.py
+src/bamboo_mcp_services/common/storage/schema_annotations.py
 ```
 
 See `QUEUEDATA_FIELD_DESCRIPTIONS` and `get_queuedata_schema_context()`.
@@ -102,7 +102,7 @@ pip install -e ".[dev]"
 ### Step 2 — Verify
 
 ```bash
-python -c "from askpanda_atlas_agents.agents.cric_agent.agent import CricAgent; print('OK')"
+python -c "from bamboo_mcp_services.agents.cric_agent.agent import CricAgent; print('OK')"
 ```
 
 ### Step 3 — Confirm CVMFS access
@@ -121,7 +121,7 @@ a local copy of the JSON.
 The agent is configured via a YAML file. The default path is:
 
 ```
-src/askpanda_atlas_agents/resources/config/cric-agent.yaml
+src/bamboo_mcp_services/resources/config/cric-agent.yaml
 ```
 
 ### Full example
@@ -156,7 +156,7 @@ tick_interval_s: 60.0
 ### One-shot (recommended for first use and testing)
 
 ```bash
-askpanda-cric-agent --data /path/to/cric.db --once
+bamboo-cric --data /path/to/cric.db --once
 ```
 
 Reads the file, loads the database, logs a summary, and exits. No daemon
@@ -166,9 +166,9 @@ scheduling, or for scripted data pulls.
 ### Long-running daemon
 
 ```bash
-askpanda-cric-agent \
+bamboo-cric \
   --data /path/to/cric.db \
-  --config src/askpanda_atlas_agents/resources/config/cric-agent.yaml
+  --config src/bamboo_mcp_services/resources/config/cric-agent.yaml
 ```
 
 Loops indefinitely, calling `tick()` every `tick_interval_s` seconds.
@@ -189,14 +189,14 @@ Ctrl-C or SIGTERM — both trigger a clean shutdown and log the final state.
 
 ```bash
 # 1. Read from CVMFS, write to /tmp/cric.db, exit immediately:
-askpanda-cric-agent --data /tmp/cric.db --once --log-level DEBUG
+bamboo-cric --data /tmp/cric.db --once --log-level DEBUG
 
 # 2. Inspect what was loaded:
 duckdb /tmp/cric.db "SELECT COUNT(*) FROM queuedata"
 duckdb /tmp/cric.db "SELECT queue, status, cloud, tier FROM queuedata LIMIT 10"
 
 # 3. If everything looks good, run as a daemon:
-askpanda-cric-agent --data /data/cric.db --log-file /var/log/cric-agent.log
+bamboo-cric --data /data/cric.db --log-file /var/log/cric-agent.log
 ```
 
 > **Note:** `duckdb` in the commands above is the standalone CLI binary, which
@@ -311,7 +311,7 @@ DESCRIBE queuedata;
 
 ```python
 import duckdb
-from askpanda_atlas_agents.common.storage.schema_annotations import (
+from bamboo_mcp_services.common.storage.schema_annotations import (
     get_queuedata_schema_context,
 )
 
@@ -382,7 +382,7 @@ Key modules:
 |---|---|
 | `agents/cric_agent/agent.py` | Agent lifecycle, `CricAgentConfig` dataclass |
 | `agents/cric_agent/cric_fetcher.py` | File reading, hash check, DROP/CREATE/INSERT |
-| `agents/cric_agent/cli.py` | CLI entry point (`askpanda-cric-agent`) |
+| `agents/cric_agent/cli.py` | CLI entry point (`bamboo-cric`) |
 | `common/storage/duckdb_store.py` | Low-level DuckDB helpers (snapshots table) |
 | `common/panda/source.py` | File fetching with SHA-256 content hashing |
 | `common/storage/schema_annotations.py` | `QUEUEDATA_FIELD_DESCRIPTIONS`, `get_queuedata_schema_context()` |
@@ -426,7 +426,7 @@ so the model understands what each column means when a user asks a question
 that requires a database lookup:
 
 ```python
-from askpanda_atlas_agents.common.storage.schema_annotations import (
+from bamboo_mcp_services.common.storage.schema_annotations import (
     get_queuedata_schema_context,
 )
 print(get_queuedata_schema_context())

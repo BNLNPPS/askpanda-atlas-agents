@@ -10,8 +10,8 @@ continue existing development, and follow the project's workflow conventions.
 If you have already set up the environment and just want to continue:
 
 ```bash
-cd askpanda-atlas-agents
-conda activate askpanda
+cd bamboo-mcp-services
+conda activate bamboo-mcp-services
 pip install -e .          # pick up any dependency changes since last time
 pytest                    # confirm everything still passes
 ```
@@ -33,18 +33,18 @@ That is all you need on a normal working day.
 
 ```bash
 git clone <repo-url>
-cd askpanda-atlas-agents
+cd bamboo-mcp-services
 ```
 
 ### 2 — Create the conda environment
 
 ```bash
-conda create -n askpanda python=3.12
-conda activate askpanda
+conda create -n bamboo-mcp-services python=3.12
+conda activate bamboo-mcp-services
 ```
 
-The environment is named `askpanda` throughout this document.  If you choose
-a different name, substitute it wherever `askpanda` appears.
+The environment is named `bamboo-mcp-services` throughout this document.  If you choose
+a different name, substitute it wherever `bamboo-mcp-services` appears.
 
 ### 3 — Install Python dependencies
 
@@ -91,15 +91,15 @@ whitespace, large files, flake8 errors, and circular imports.
 
 ```bash
 # Package is importable:
-python -c "from askpanda_atlas_agents.agents.cric_agent.agent import CricAgent; print('OK')"
+python -c "from bamboo_mcp_services.agents.cric_agent.agent import CricAgent; print('OK')"
 
 # All tests pass:
 pytest
 
 # CLI entry points are registered:
-askpanda-cric-agent --help
-askpanda-ingestion-agent --help
-askpanda-document-monitor-agent --help
+bamboo-cric --help
+bamboo-ingestion --help
+bamboo-document-monitor --help
 
 # Linting is clean:
 flake8 src tests
@@ -115,12 +115,12 @@ Reads ATLAS queue metadata from CVMFS and loads it into a local DuckDB file.
 
 ```bash
 # One-shot — load once and exit (good for testing):
-askpanda-cric-agent --data /tmp/cric.db --once --log-level DEBUG
+bamboo-cric --data /tmp/cric.db --once --log-level DEBUG
 
 # Daemon mode — re-reads CVMFS every 10 minutes:
-askpanda-cric-agent \
+bamboo-cric \
   --data /tmp/cric.db \
-  --config src/askpanda_atlas_agents/resources/config/cric-agent.yaml
+  --config src/bamboo_mcp_services/resources/config/cric-agent.yaml
 
 # Inspect the result:
 duckdb /tmp/cric.db "SELECT queue, status, cloud, tier FROM queuedata LIMIT 10"
@@ -134,13 +134,13 @@ Downloads BigPanda job metadata for configured queues.
 
 ```bash
 # One-shot (inter-queue delay suppressed):
-askpanda-ingestion-agent \
-  --config src/askpanda_atlas_agents/resources/config/ingestion-agent.yaml \
+bamboo-ingestion \
+  --config src/bamboo_mcp_services/resources/config/ingestion-agent.yaml \
   --once --log-level DEBUG
 
 # Daemon mode:
-askpanda-ingestion-agent \
-  --config src/askpanda_atlas_agents/resources/config/ingestion-agent.yaml
+bamboo-ingestion \
+  --config src/bamboo_mcp_services/resources/config/ingestion-agent.yaml
 
 # Inspect the result:
 python scripts/dump_ingestion_db.py --count
@@ -194,13 +194,13 @@ pre-commit run --all-files
 
 ### Adding a new agent
 
-1. Create `src/askpanda_atlas_agents/agents/<name>_agent/` with
+1. Create `src/bamboo_mcp_services/agents/<name>_agent/` with
    `__init__.py`, `agent.py`, `cli.py`, and any fetcher modules.
 2. Subclass `Agent` from `agents/base.py` and implement
    `_start_impl`, `_tick_impl`, `_stop_impl`.
 3. Register the CLI entry point in `pyproject.toml` under
    `[project.scripts]`.
-4. Add a config file under `src/askpanda_atlas_agents/resources/config/`.
+4. Add a config file under `src/bamboo_mcp_services/resources/config/`.
 5. Add tests in `tests/agents/<name>_agent/`.
 6. Add a `README-<name>_agent.md` and update `README.md` and `CLAUDE.md`.
 
@@ -212,7 +212,7 @@ The `cric_agent` is the simplest complete example to use as a template
 ## Project layout (key files)
 
 ```
-askpanda-atlas-agents/
+bamboo-mcp-services/
 ├─ README.md                          ← project overview and quick-start
 ├─ README-cric_agent.md               ← CRIC agent full docs
 ├─ README-ingestion_agent.md          ← ingestion agent full docs
@@ -227,7 +227,7 @@ askpanda-atlas-agents/
 ├─ .pre-commit-config.yaml            ← pre-commit hooks
 ├─ scripts/
 │  └─ dump_ingestion_db.py            ← CLI tool to inspect jobs.duckdb
-├─ src/askpanda_atlas_agents/
+├─ src/bamboo_mcp_services/
 │  ├─ agents/
 │  │  ├─ base.py                      ← Agent ABC and lifecycle state machine
 │  │  ├─ cric_agent/                  ← CRIC queuedata ingestion
@@ -246,7 +246,7 @@ askpanda-atlas-agents/
 │     ├─ ingestion_agent/                     ← 19+ tests
 │     ├─ dummy_agent/
 │     └─ test_base_agent.py
-└─ src/askpanda_atlas_agents/resources/config/
+└─ src/bamboo_mcp_services/resources/config/
    ├─ cric-agent.yaml
    └─ ingestion-agent.yaml
 ```
@@ -255,7 +255,7 @@ askpanda-atlas-agents/
 
 ## Common pitfalls
 
-**`ModuleNotFoundError: askpanda_atlas_agents`**
+**`ModuleNotFoundError: bamboo_mcp_services`**
 Run `pip install -e .` from the repository root.  The `src/` layout means the
 package is not importable unless installed.
 

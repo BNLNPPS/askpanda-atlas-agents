@@ -10,7 +10,7 @@ All major functions, classes, and methods in the repository now have proper Goog
 
 ## Files Updated
 
-### 1. `src/askpanda_atlas_agents/agents/base.py`
+### 1. `src/bamboo_mcp_services/agents/base.py`
 
 **Added:**
 - Module-level docstring explaining the base agent infrastructure
@@ -34,7 +34,7 @@ All major functions, classes, and methods in the repository now have proper Goog
 
 **Type hints:** All methods already had complete type hints ✓
 
-### 2. `src/askpanda_atlas_agents/common/panda/source.py`
+### 2. `src/bamboo_mcp_services/common/panda/source.py`
 
 **Added:**
 - Module-level docstring
@@ -47,7 +47,7 @@ All major functions, classes, and methods in the repository now have proper Goog
 **Type hints:** All functions already had complete type hints ✓
 **Fixed:** Removed unused `Optional` import
 
-### 3. `src/askpanda_atlas_agents/common/storage/duckdb_store.py`
+### 3. `src/bamboo_mcp_services/common/storage/duckdb_store.py`
 
 **Added:**
 - Module-level docstring
@@ -60,7 +60,7 @@ All major functions, classes, and methods in the repository now have proper Goog
 
 **Type hints:** Added return type `-> None` to all methods that were missing it ✓
 
-### 4. `src/askpanda_atlas_agents/agents/ingestion_agent/agent.py`
+### 4. `src/bamboo_mcp_services/agents/ingestion_agent/agent.py`
 
 **Added:**
 - Module-level docstring
@@ -77,7 +77,7 @@ All major functions, classes, and methods in the repository now have proper Goog
 
 **Type hints:** Added return type `-> None` to `__init__` and other methods ✓
 
-### 5. `src/askpanda_atlas_agents/agents/ingestion_agent/cli.py`
+### 5. `src/bamboo_mcp_services/agents/ingestion_agent/cli.py`
 
 **Added:**
 - Module-level docstring
@@ -129,8 +129,8 @@ All major functions, classes, and methods in the repository now have proper Goog
 ## Files Already Documented
 
 The following files already had complete documentation:
-- `src/askpanda_atlas_agents/agents/dummy_agent/agent.py` - ✓ Complete
-- `src/askpanda_atlas_agents/agents/dummy_agent/cli.py` - ✓ Complete
+- `src/bamboo_mcp_services/agents/dummy_agent/agent.py` - ✓ Complete
+- `src/bamboo_mcp_services/agents/dummy_agent/cli.py` - ✓ Complete
 
 ## Documentation Standards Applied
 

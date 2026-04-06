@@ -22,14 +22,14 @@ A periodic data ingestion agent that downloads job metadata from the [BigPanda](
 The schema is defined in a dedicated Python module:
 
 ```
-src/askpanda_atlas_agents/common/storage/schema.py
+src/bamboo_mcp_services/common/storage/schema.py
 ```
 
 This module is the single source of truth for all table DDL. It can be imported by AskPanDA (or any other consumer) to validate, recreate, or introspect the schema without duplicating SQL strings:
 
 ```python
 import duckdb
-from askpanda_atlas_agents.common.storage.schema import apply_schema, table_names
+from bamboo_mcp_services.common.storage.schema import apply_schema, table_names
 
 conn = duckdb.connect("jobs.duckdb")
 apply_schema(conn)          # idempotent — safe to call on an existing database
@@ -116,7 +116,7 @@ pip install -e ".[dev]"
 ### Step 2 — Verify
 
 ```bash
-python -c "from askpanda_atlas_agents.agents.ingestion_agent.agent import IngestionAgent; print('OK')"
+python -c "from bamboo_mcp_services.agents.ingestion_agent.agent import IngestionAgent; print('OK')"
 ```
 
 ---
@@ -126,7 +126,7 @@ python -c "from askpanda_atlas_agents.agents.ingestion_agent.agent import Ingest
 The agent is configured via a YAML file. The default path is:
 
 ```
-src/askpanda_atlas_agents/resources/config/ingestion-agent.yaml
+src/bamboo_mcp_services/resources/config/ingestion-agent.yaml
 ```
 
 ### Full example
@@ -136,7 +136,7 @@ sources:
   - name: example_cric
     type: cric_queue_data
     mode: file
-    path: src/askpanda_atlas_agents/resources/config/example_queue.json
+    path: src/bamboo_mcp_services/resources/config/example_queue.json
     interval_s: 300
 
 bigpanda_jobs:
@@ -188,7 +188,7 @@ Each entry under `sources` supports:
 ### One-shot (single tick)
 
 ```bash
-askpanda-ingestion-agent --config path/to/ingestion-agent.yaml --once
+bamboo-ingestion --config path/to/ingestion-agent.yaml --once
 ```
 
 Downloads all configured queues back-to-back (inter-queue delay suppressed) and exits. Useful for an initial data pull, cron-based scheduling, or debugging.
@@ -196,7 +196,7 @@ Downloads all configured queues back-to-back (inter-queue delay suppressed) and 
 ### Long-running daemon
 
 ```bash
-askpanda-ingestion-agent --config path/to/ingestion-agent.yaml
+bamboo-ingestion --config path/to/ingestion-agent.yaml
 ```
 
 Loops indefinitely, calling `tick()` every `tick_interval_s` seconds. The BigPanda jobs cycle fires at most once per `cycle_interval_s`. Stop with Ctrl-C or SIGTERM — both trigger a clean shutdown.
@@ -216,8 +216,8 @@ Loops indefinitely, calling `tick()` every `tick_interval_s` seconds. The BigPan
 To download all queues as quickly as possible without editing the config file:
 
 ```bash
-askpanda-ingestion-agent \
-  --config src/askpanda_atlas_agents/resources/config/ingestion-agent.yaml \
+bamboo-ingestion \
+  --config src/bamboo_mcp_services/resources/config/ingestion-agent.yaml \
   --once \
   --inter-queue-delay 0 \
   --log-level DEBUG
@@ -306,7 +306,7 @@ DESCRIBE jobs;
 
 ```python
 import duckdb
-from askpanda_atlas_agents.common.storage.schema import apply_schema
+from bamboo_mcp_services.common.storage.schema import apply_schema
 
 conn = duckdb.connect("jobs.duckdb", read_only=True)
 apply_schema(conn)  # no-op if tables already exist; ensures schema is present
@@ -362,7 +362,7 @@ Key modules:
 |---|---|
 | `agents/ingestion_agent/agent.py` | Agent lifecycle, config dataclasses |
 | `agents/ingestion_agent/bigpanda_jobs_fetcher.py` | BigPanda download loop and DB persistence |
-| `agents/ingestion_agent/cli.py` | CLI entry point (`askpanda-ingestion-agent`) |
+| `agents/ingestion_agent/cli.py` | CLI entry point (`bamboo-ingestion`) |
 | `common/storage/schema.py` | DuckDB DDL — single source of truth for all table schemas |
 | `common/storage/duckdb_store.py` | Low-level DuckDB helpers (snapshots table, generic write) |
 | `common/panda/source.py` | File and URL fetching with content hashing |

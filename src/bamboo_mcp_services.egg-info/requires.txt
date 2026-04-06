@@ -1,0 +1,9 @@
+duckdb>=0.10
+requests>=2.31
+pyyaml>=6.0
+pandas>=2.0
+
+[dev]
+flake8
+pytest
+pytest-cov

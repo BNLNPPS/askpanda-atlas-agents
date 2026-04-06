@@ -14,17 +14,17 @@ from unittest.mock import patch
 import duckdb
 import pytest
 
-from askpanda_atlas_agents.agents.cric_agent.agent import CricAgent, CricAgentConfig
-from askpanda_atlas_agents.agents.cric_agent.cric_fetcher import (
+from bamboo_mcp_services.agents.cric_agent.agent import CricAgent, CricAgentConfig
+from bamboo_mcp_services.agents.cric_agent.cric_fetcher import (
     CricQueuedataFetcher,
     _to_cell_value,
     _merge_type,
     _infer_schema,
     _SKIP_FIELDS,
 )
-from askpanda_atlas_agents.agents.cric_agent.cli import build_parser, main
-from askpanda_atlas_agents.agents.base import AgentState
-from askpanda_atlas_agents.common.panda.source import RawSnapshot
+from bamboo_mcp_services.agents.cric_agent.cli import build_parser, main
+from bamboo_mcp_services.agents.base import AgentState
+from bamboo_mcp_services.common.panda.source import RawSnapshot
 
 
 # ---------------------------------------------------------------------------
@@ -311,7 +311,7 @@ class TestBuildRows:
 class TestRunCycle:
     def test_first_run_loads_table_and_returns_true(self, fetcher):
         with patch(
-            "askpanda_atlas_agents.agents.cric_agent.cric_fetcher.BaseSource",
+            "bamboo_mcp_services.agents.cric_agent.cric_fetcher.BaseSource",
             _make_fake_source_class(CRIC_TWO_QUEUES),
         ):
             result = fetcher.run_cycle()
@@ -322,7 +322,7 @@ class TestRunCycle:
 
     def test_data_fields_absent_from_table(self, fetcher):
         with patch(
-            "askpanda_atlas_agents.agents.cric_agent.cric_fetcher.BaseSource",
+            "bamboo_mcp_services.agents.cric_agent.cric_fetcher.BaseSource",
             _make_fake_source_class(CRIC_TWO_QUEUES),
         ):
             fetcher.run_cycle()
@@ -333,7 +333,7 @@ class TestRunCycle:
 
     def test_queue_column_contains_correct_values(self, fetcher):
         with patch(
-            "askpanda_atlas_agents.agents.cric_agent.cric_fetcher.BaseSource",
+            "bamboo_mcp_services.agents.cric_agent.cric_fetcher.BaseSource",
             _make_fake_source_class(CRIC_TWO_QUEUES),
         ):
             fetcher.run_cycle()
@@ -346,7 +346,7 @@ class TestRunCycle:
 
     def test_json_column_round_trips(self, fetcher):
         with patch(
-            "askpanda_atlas_agents.agents.cric_agent.cric_fetcher.BaseSource",
+            "bamboo_mcp_services.agents.cric_agent.cric_fetcher.BaseSource",
             _make_fake_source_class(CRIC_TWO_QUEUES),
         ):
             fetcher.run_cycle()
@@ -361,7 +361,7 @@ class TestRunCycle:
     def test_unchanged_file_skips_reload_and_returns_false(self, fetcher):
         fake_cls = _make_fake_source_class(CRIC_TWO_QUEUES)
         with patch(
-            "askpanda_atlas_agents.agents.cric_agent.cric_fetcher.BaseSource",
+            "bamboo_mcp_services.agents.cric_agent.cric_fetcher.BaseSource",
             fake_cls,
         ):
             fetcher.run_cycle()
@@ -371,14 +371,14 @@ class TestRunCycle:
 
     def test_changed_file_reloads_table(self, fetcher):
         with patch(
-            "askpanda_atlas_agents.agents.cric_agent.cric_fetcher.BaseSource",
+            "bamboo_mcp_services.agents.cric_agent.cric_fetcher.BaseSource",
             _make_fake_source_class(CRIC_TWO_QUEUES),
         ):
             fetcher.run_cycle()
 
         three_queues = {**CRIC_TWO_QUEUES, "NEW_QUEUE": {"status": "online"}}
         with patch(
-            "askpanda_atlas_agents.agents.cric_agent.cric_fetcher.BaseSource",
+            "bamboo_mcp_services.agents.cric_agent.cric_fetcher.BaseSource",
             _make_fake_source_class(three_queues),
         ):
             result = fetcher.run_cycle()
@@ -390,14 +390,14 @@ class TestRunCycle:
     def test_reload_replaces_old_rows(self, fetcher):
         """After a reload only the new rows exist — no stale rows from the previous load."""
         with patch(
-            "askpanda_atlas_agents.agents.cric_agent.cric_fetcher.BaseSource",
+            "bamboo_mcp_services.agents.cric_agent.cric_fetcher.BaseSource",
             _make_fake_source_class(CRIC_TWO_QUEUES),
         ):
             fetcher.run_cycle()
 
         only_one = {"ONLY_QUEUE": {"status": "online"}}
         with patch(
-            "askpanda_atlas_agents.agents.cric_agent.cric_fetcher.BaseSource",
+            "bamboo_mcp_services.agents.cric_agent.cric_fetcher.BaseSource",
             _make_fake_source_class(only_one),
         ):
             fetcher.run_cycle()
@@ -412,17 +412,23 @@ class TestRunCycle:
             cric_path="/fake",
             refresh_interval_s=9999,
         )
-        with patch(
-            "askpanda_atlas_agents.agents.cric_agent.cric_fetcher.BaseSource",
-            _make_fake_source_class(CRIC_TWO_QUEUES),
-        ):
-            result = gated.run_cycle()
+        fake_cls = _make_fake_source_class(CRIC_TWO_QUEUES)
+        # Simulate that a run just happened by setting _last_attempt to now,
+        # so the interval (9999 s) has definitely not elapsed yet.
+        with patch("bamboo_mcp_services.agents.cric_agent.cric_fetcher.time.monotonic",
+                   return_value=1_000_000.0):
+            gated._last_attempt = 1_000_000.0  # set inside the mock so values match
+            with patch(
+                "bamboo_mcp_services.agents.cric_agent.cric_fetcher.BaseSource",
+                fake_cls,
+            ):
+                result = gated.run_cycle()
 
         assert result is False
 
     def test_health_attributes_updated_after_load(self, fetcher):
         with patch(
-            "askpanda_atlas_agents.agents.cric_agent.cric_fetcher.BaseSource",
+            "bamboo_mcp_services.agents.cric_agent.cric_fetcher.BaseSource",
             _make_fake_source_class(CRIC_TWO_QUEUES),
         ):
             fetcher.run_cycle()
@@ -439,7 +445,7 @@ class TestRunCycle:
 
     def test_file_read_error_returns_false_and_does_not_raise(self, fetcher):
         with patch(
-            "askpanda_atlas_agents.agents.cric_agent.cric_fetcher.BaseSource",
+            "bamboo_mcp_services.agents.cric_agent.cric_fetcher.BaseSource",
         ) as mock_cls:
             mock_cls.return_value.fetch_from_file.side_effect = FileNotFoundError("no file")
             result = fetcher.run_cycle()
@@ -455,7 +461,7 @@ class TestRunCycle:
             content_hash="deadbeef",
         )
         with patch(
-            "askpanda_atlas_agents.agents.cric_agent.cric_fetcher.BaseSource",
+            "bamboo_mcp_services.agents.cric_agent.cric_fetcher.BaseSource",
         ) as mock_cls:
             mock_cls.return_value.fetch_from_file.return_value = snap
             result = fetcher.run_cycle()
@@ -489,7 +495,7 @@ class TestCricAgent:
     def test_tick_loads_queuedata_table(self):
         agent = CricAgent(config=self._make_config())
         with patch(
-            "askpanda_atlas_agents.agents.cric_agent.cric_fetcher.BaseSource",
+            "bamboo_mcp_services.agents.cric_agent.cric_fetcher.BaseSource",
             _make_fake_source_class(CRIC_TWO_QUEUES),
         ):
             agent.start()
@@ -512,7 +518,7 @@ class TestCricAgent:
     def test_health_ok_while_running(self):
         agent = CricAgent(config=self._make_config())
         with patch(
-            "askpanda_atlas_agents.agents.cric_agent.cric_fetcher.BaseSource",
+            "bamboo_mcp_services.agents.cric_agent.cric_fetcher.BaseSource",
             _make_fake_source_class(CRIC_TWO_QUEUES),
         ):
             agent.start()
@@ -530,10 +536,12 @@ class TestCricAgent:
         """Interval gate active: tick runs but fetcher does not load."""
         agent = CricAgent(config=self._make_config(refresh_interval_s=9999))
         with patch(
-            "askpanda_atlas_agents.agents.cric_agent.cric_fetcher.BaseSource",
+            "bamboo_mcp_services.agents.cric_agent.cric_fetcher.BaseSource",
             _make_fake_source_class(CRIC_TWO_QUEUES),
         ):
             agent.start()
+            # Set _last_attempt to now so the 9999 s interval has not elapsed
+            agent._fetcher._last_attempt = __import__("time").monotonic()
             agent.tick()
 
         h = agent.health()
@@ -602,7 +610,7 @@ class TestCLI:
         db_path = str(tmp_path / "cric.db")
 
         with patch(
-            "askpanda_atlas_agents.agents.cric_agent.cric_fetcher.BaseSource",
+            "bamboo_mcp_services.agents.cric_agent.cric_fetcher.BaseSource",
             _make_fake_source_class(CRIC_TWO_QUEUES),
         ):
             rc = main([
@@ -626,7 +634,7 @@ class TestCLI:
             "refresh_interval_s: 0\n"
         )
         with patch(
-            "askpanda_atlas_agents.agents.cric_agent.cric_fetcher.BaseSource",
+            "bamboo_mcp_services.agents.cric_agent.cric_fetcher.BaseSource",
             _make_fake_source_class({}),
         ):
             rc = main([

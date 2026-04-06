@@ -15,9 +15,9 @@ Two agents are production-ready; others are planned:
 
 | Agent | Status | Entry point |
 |---|---|---|
-| `ingestion-agent` | ✅ Ready | `askpanda-ingestion-agent` |
-| `document-monitor-agent` | ✅ Ready | `askpanda-document-monitor-agent` |
-| `cric-agent` | ✅ Ready | `askpanda-cric-agent` |
+| `ingestion-agent` | ✅ Ready | `bamboo-ingestion` |
+| `document-monitor-agent` | ✅ Ready | `bamboo-document-monitor` |
+| `cric-agent` | ✅ Ready | `bamboo-cric` |
 | `dast-agent` | 📋 Planned | — |
 | `supervisor-agent` | 📋 Planned | — |
 
@@ -44,13 +44,13 @@ importing the package or running tests.
 
 ```bash
 # Ingestion agent — download all queues once and exit:
-askpanda-ingestion-agent \
-  --config src/askpanda_atlas_agents/resources/config/ingestion-agent.yaml \
+bamboo-ingestion \
+  --config src/bamboo_mcp_services/resources/config/ingestion-agent.yaml \
   --once
 
 # Ingestion agent — daemon mode (polls every 30 minutes):
-askpanda-ingestion-agent \
-  --config src/askpanda_atlas_agents/resources/config/ingestion-agent.yaml
+bamboo-ingestion \
+  --config src/bamboo_mcp_services/resources/config/ingestion-agent.yaml
 
 # Useful debug flags:
 #   --log-level DEBUG
@@ -63,14 +63,14 @@ python scripts/dump_ingestion_db.py --table jobs --queue BNL --limit 5
 python scripts/dump_ingestion_db.py --table jobs --queue BNL --format json | jq '.pandaid'
 
 # CRIC agent — load queuedata once and exit:
-askpanda-cric-agent \
+bamboo-cric \
   --data cric.db \
   --once
 
 # CRIC agent — daemon mode (re-reads CVMFS file every 10 minutes):
-askpanda-cric-agent \
+bamboo-cric \
   --data cric.db \
-  --config src/askpanda_atlas_agents/resources/config/cric-agent.yaml
+  --config src/bamboo_mcp_services/resources/config/cric-agent.yaml
 
 # Useful debug flags (same as ingestion agent):
 #   --log-level DEBUG
@@ -89,7 +89,7 @@ duckdb cric.db "SELECT queue, status, cloud, tier FROM queuedata LIMIT 10"
 
 ```bash
 pytest                                              # run all tests
-pytest --cov=askpanda_atlas_agents --cov-report=term-missing
+pytest --cov=bamboo_mcp_services --cov-report=term-missing
 pytest tests/agents/ingestion_agent/ -v            # ingestion agent tests only
 pytest tests/agents/cric_agent/ -v                 # CRIC agent tests only
 flake8 src tests                                    # must be clean before commit
@@ -133,7 +133,7 @@ def my_function(x: int, y: str) -> bool:
 ## Repository layout
 
 ```
-askpanda-atlas-agents/
+bamboo-mcp-services/
 ├─ CLAUDE.md                          ← you are here
 ├─ README.md                          ← project overview and quick-start
 ├─ README-ingestion_agent.md          ← ingestion agent full docs
@@ -146,7 +146,7 @@ askpanda-atlas-agents/
 ├─ .pre-commit-config.yaml            ← pre-commit hooks
 ├─ scripts/
 │  └─ dump_ingestion_db.py            ← CLI tool to inspect jobs.duckdb
-├─ src/askpanda_atlas_agents/
+├─ src/bamboo_mcp_services/
 │  ├─ agents/
 │  │  ├─ base.py                      ← Agent ABC and lifecycle state machine
 │  │  ├─ ingestion_agent/
@@ -156,7 +156,7 @@ askpanda-atlas-agents/
 │  │  ├─ cric_agent/
 │  │  │  ├─ agent.py                  ← CricAgent, CricAgentConfig
 │  │  │  ├─ cric_fetcher.py           ← file read, hash check, DROP/CREATE/INSERT
-│  │  │  └─ cli.py                    ← CLI entry point (askpanda-cric-agent)
+│  │  │  └─ cli.py                    ← CLI entry point (bamboo-cric)
 │  │  ├─ document_monitor_agent/      ← ChromaDB-backed document watcher
 │  │  └─ dummy_agent/                 ← minimal no-op agent (template + tests)
 │  └─ common/
@@ -175,7 +175,7 @@ askpanda-atlas-agents/
 │     │  └─ test_cric_agent.py              ← 43 tests
 │     ├─ dummy_agent/test_dummy_agent.py
 │     └─ test_base_agent.py                 ← 8 lifecycle tests
-└─ src/askpanda_atlas_agents/resources/config/
+└─ src/bamboo_mcp_services/resources/config/
    ├─ ingestion-agent.yaml            ← default ingestion agent configuration
    └─ cric-agent.yaml                 ← default CRIC agent configuration
 ```
@@ -261,7 +261,7 @@ databases:
 **BigPanda jobs** (`jobs.duckdb`):
 
 ```python
-from askpanda_atlas_agents.common.storage.schema_annotations import get_schema_context
+from bamboo_mcp_services.common.storage.schema_annotations import get_schema_context
 
 # Returns a multi-line "Table: … column TYPE description" block
 context = get_schema_context()                  # all three tables
@@ -271,7 +271,7 @@ context = get_schema_context(["jobs"])          # jobs only
 **CRIC queuedata** (`cric.db`):
 
 ```python
-from askpanda_atlas_agents.common.storage.schema_annotations import (
+from bamboo_mcp_services.common.storage.schema_annotations import (
     get_queuedata_schema_context,
     QUEUEDATA_FIELD_DESCRIPTIONS,
 )
@@ -321,7 +321,7 @@ Note: `conda install -c conda-forge duckdb` does **not** install the CLI binary
 on macOS.  If you prefer no CLI install, query via Python:
 `python -c "import duckdb; print(duckdb.connect('cric.db', read_only=True).execute('SELECT COUNT(*) FROM queuedata').fetchone())"`.
 
-**`ModuleNotFoundError: askpanda_atlas_agents`** — run `pip install -e .` from
+**`ModuleNotFoundError: bamboo_mcp_services`** — run `pip install -e .` from
 the repository root.
 
 **DuckDB constraint errors after schema changes** — delete `jobs.duckdb` and

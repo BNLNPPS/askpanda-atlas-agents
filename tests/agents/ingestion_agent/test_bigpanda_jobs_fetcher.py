@@ -8,8 +8,8 @@ from unittest.mock import MagicMock, patch
 import duckdb
 import pytest
 
-from askpanda_atlas_agents.common.storage.schema import apply_schema, table_names
-from askpanda_atlas_agents.agents.ingestion_agent.bigpanda_jobs_fetcher import (
+from bamboo_mcp_services.common.storage.schema import apply_schema, table_names
+from bamboo_mcp_services.agents.ingestion_agent.bigpanda_jobs_fetcher import (
     BigPandaJobsFetcher,
 )
 
@@ -141,7 +141,7 @@ class TestBigPandaJobsFetcher:
         mock_response.raise_for_status.return_value = None
 
         with patch(
-            "askpanda_atlas_agents.agents.ingestion_agent.bigpanda_jobs_fetcher.requests.get",
+            "bamboo_mcp_services.agents.ingestion_agent.bigpanda_jobs_fetcher.requests.get",
             return_value=mock_response,
         ):
             ran = fetcher.run_cycle(force=True)
@@ -156,7 +156,7 @@ class TestBigPandaJobsFetcher:
         mock_response.raise_for_status.return_value = None
 
         with patch(
-            "askpanda_atlas_agents.agents.ingestion_agent.bigpanda_jobs_fetcher.requests.get",
+            "bamboo_mcp_services.agents.ingestion_agent.bigpanda_jobs_fetcher.requests.get",
             return_value=mock_response,
         ):
             fetcher.run_cycle(force=True)
@@ -179,7 +179,7 @@ class TestBigPandaJobsFetcher:
         mock_response.raise_for_status.return_value = None
 
         with patch(
-            "askpanda_atlas_agents.agents.ingestion_agent.bigpanda_jobs_fetcher.requests.get",
+            "bamboo_mcp_services.agents.ingestion_agent.bigpanda_jobs_fetcher.requests.get",
             return_value=mock_response,
         ):
             fetcher.run_cycle(force=True)
@@ -197,7 +197,7 @@ class TestBigPandaJobsFetcher:
         mock_response.raise_for_status.return_value = None
 
         with patch(
-            "askpanda_atlas_agents.agents.ingestion_agent.bigpanda_jobs_fetcher.requests.get",
+            "bamboo_mcp_services.agents.ingestion_agent.bigpanda_jobs_fetcher.requests.get",
             return_value=mock_response,
         ):
             fetcher.run_cycle(force=True)
@@ -218,7 +218,7 @@ class TestBigPandaJobsFetcher:
         mock_response.raise_for_status.return_value = None
 
         with patch(
-            "askpanda_atlas_agents.agents.ingestion_agent.bigpanda_jobs_fetcher.requests.get",
+            "bamboo_mcp_services.agents.ingestion_agent.bigpanda_jobs_fetcher.requests.get",
             return_value=mock_response,
         ):
             fetcher.run_cycle(force=True)
@@ -237,7 +237,7 @@ class TestBigPandaJobsFetcher:
         mock_response.raise_for_status.return_value = None
 
         with patch(
-            "askpanda_atlas_agents.agents.ingestion_agent.bigpanda_jobs_fetcher.requests.get",
+            "bamboo_mcp_services.agents.ingestion_agent.bigpanda_jobs_fetcher.requests.get",
             return_value=mock_response,
         ):
             fetcher.run_cycle(force=True)
@@ -257,7 +257,7 @@ class TestBigPandaJobsFetcher:
         mock_response.raise_for_status.return_value = None
 
         with patch(
-            "askpanda_atlas_agents.agents.ingestion_agent.bigpanda_jobs_fetcher.requests.get",
+            "bamboo_mcp_services.agents.ingestion_agent.bigpanda_jobs_fetcher.requests.get",
             return_value=mock_response,
         ):
             fetcher.run_cycle(force=True)  # must not raise
@@ -276,10 +276,10 @@ class TestBigPandaJobsFetcher:
         mock_response.raise_for_status.return_value = None
 
         with patch(
-            "askpanda_atlas_agents.agents.ingestion_agent.bigpanda_jobs_fetcher.requests.get",
+            "bamboo_mcp_services.agents.ingestion_agent.bigpanda_jobs_fetcher.requests.get",
             return_value=mock_response,
         ) as mock_get, patch(
-            "askpanda_atlas_agents.agents.ingestion_agent.bigpanda_jobs_fetcher.BigPandaJobsFetcher._interruptible_sleep"
+            "bamboo_mcp_services.agents.ingestion_agent.bigpanda_jobs_fetcher.BigPandaJobsFetcher._interruptible_sleep"
         ) as mock_sleep:
             fetcher.run_cycle(force=True)
 
@@ -300,10 +300,10 @@ class TestBigPandaJobsFetcher:
         mock_response.raise_for_status.return_value = None
 
         with patch(
-            "askpanda_atlas_agents.agents.ingestion_agent.bigpanda_jobs_fetcher.requests.get",
+            "bamboo_mcp_services.agents.ingestion_agent.bigpanda_jobs_fetcher.requests.get",
             return_value=mock_response,
         ), patch(
-            "askpanda_atlas_agents.agents.ingestion_agent.bigpanda_jobs_fetcher.BigPandaJobsFetcher._interruptible_sleep"
+            "bamboo_mcp_services.agents.ingestion_agent.bigpanda_jobs_fetcher.BigPandaJobsFetcher._interruptible_sleep"
         ) as mock_sleep:
             fetcher.run_cycle(force=True)
 
@@ -328,7 +328,7 @@ class TestBigPandaJobsFetcher:
             return good_response
 
         with patch(
-            "askpanda_atlas_agents.agents.ingestion_agent.bigpanda_jobs_fetcher.requests.get",
+            "bamboo_mcp_services.agents.ingestion_agent.bigpanda_jobs_fetcher.requests.get",
             side_effect=side_effect,
         ):
             fetcher.run_cycle(force=True)  # must not raise
@@ -356,10 +356,10 @@ class TestOneShot:
         mock_response.raise_for_status.return_value = None
 
         with patch(
-            "askpanda_atlas_agents.agents.ingestion_agent.bigpanda_jobs_fetcher.requests.get",
+            "bamboo_mcp_services.agents.ingestion_agent.bigpanda_jobs_fetcher.requests.get",
             return_value=mock_response,
         ), patch(
-            "askpanda_atlas_agents.agents.ingestion_agent.bigpanda_jobs_fetcher.BigPandaJobsFetcher._interruptible_sleep"
+            "bamboo_mcp_services.agents.ingestion_agent.bigpanda_jobs_fetcher.BigPandaJobsFetcher._interruptible_sleep"
         ) as mock_sleep:
             fetcher.run_cycle(force=True, one_shot=True)
 
@@ -374,10 +374,10 @@ class TestOneShot:
         mock_response.raise_for_status.return_value = None
 
         with patch(
-            "askpanda_atlas_agents.agents.ingestion_agent.bigpanda_jobs_fetcher.requests.get",
+            "bamboo_mcp_services.agents.ingestion_agent.bigpanda_jobs_fetcher.requests.get",
             return_value=mock_response,
         ), patch(
-            "askpanda_atlas_agents.agents.ingestion_agent.bigpanda_jobs_fetcher.BigPandaJobsFetcher._interruptible_sleep"
+            "bamboo_mcp_services.agents.ingestion_agent.bigpanda_jobs_fetcher.BigPandaJobsFetcher._interruptible_sleep"
         ) as mock_sleep:
             fetcher.run_cycle(force=True, one_shot=False)
 
@@ -397,7 +397,7 @@ class TestOneShot:
 
     def test_tick_once_on_agent(self, conn, sample_payload):
         """IngestionAgent.tick_once() must complete without inter-queue delay."""
-        from askpanda_atlas_agents.agents.ingestion_agent.agent import (
+        from bamboo_mcp_services.agents.ingestion_agent.agent import (
             IngestionAgent, IngestionAgentConfig, BigPandaJobsConfig,
         )
 
@@ -418,10 +418,10 @@ class TestOneShot:
         agent.start()
 
         with patch(
-            "askpanda_atlas_agents.agents.ingestion_agent.bigpanda_jobs_fetcher.requests.get",
+            "bamboo_mcp_services.agents.ingestion_agent.bigpanda_jobs_fetcher.requests.get",
             return_value=mock_response,
         ), patch(
-            "askpanda_atlas_agents.agents.ingestion_agent.bigpanda_jobs_fetcher.BigPandaJobsFetcher._interruptible_sleep"
+            "bamboo_mcp_services.agents.ingestion_agent.bigpanda_jobs_fetcher.BigPandaJobsFetcher._interruptible_sleep"
         ) as mock_sleep:
             agent.tick_once()
 

@@ -1,0 +1,2 @@
+askpanda_atlas_agents
+bamboo_mcp_services
