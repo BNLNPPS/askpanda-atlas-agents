@@ -259,6 +259,14 @@ bamboo-mcp-services/
 Run `pip install -e .` from the repository root.  The `src/` layout means the
 package is not importable unless installed.
 
+**Stale `src/askpanda_atlas_agents/` directory after extracting a zip**
+If you extracted a `bamboo-mcp-services.zip` over a directory that previously
+held the old `askpanda-atlas-agents` project, the old source tree
+`src/askpanda_atlas_agents/` may still be present alongside the new
+`src/bamboo_mcp_services/`.  Remove it explicitly:
+`rm -rf src/askpanda_atlas_agents`
+Then re-run `pip install -e .` and `pytest` to confirm everything is clean.
+
 **`duckdb: command not found`**
 The `duckdb` CLI binary is separate from the Python package.  Install it with
 `brew install duckdb` (macOS) or use the direct download shown in step 4 above.

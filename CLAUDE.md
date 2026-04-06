@@ -7,9 +7,8 @@ effectively in this repository.
 
 ## What this repository is
 
-**AskPanDA-ATLAS Agents** is a collection of Python agents that feed data into
-the *AskPanDA-ATLAS* plugin for the Bamboo Toolkit, which supports ATLAS
-Experiment computing operations at CERN.
+**Bamboo MCP Services** is a collection of Python services that feed data into
+the Bamboo Toolkit, supporting ATLAS Experiment computing operations at CERN.
 
 Two agents are production-ready; others are planned:
 
@@ -216,7 +215,7 @@ overwrites in shared environments.
 **DuckDB concurrency**: DuckDB allows multiple readers but only one writer.
 The CRIC agent writes to `cric.db`; the ingestion agent writes to `jobs.duckdb`
 (or whatever path is configured).  These are separate files — no write
-conflicts.  AskPanDA / Bamboo should open both files read-only.
+conflicts.  Bamboo should open both files read-only.
 
 ---
 

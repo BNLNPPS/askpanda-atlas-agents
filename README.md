@@ -1,9 +1,9 @@
-# AskPanDA-ATLAS Agents
+# Bamboo MCP Services
 
-**AskPanDA-ATLAS Agents** is a collection of cooperative, Python-based agents that power the *AskPanDA-ATLAS* plugin for the **Bamboo Toolkit**, supporting the ATLAS Experiment.
+**Bamboo MCP Services** is a collection of cooperative, Python-based services that feed data into the **Bamboo Toolkit**, supporting the ATLAS Experiment at CERN.
 
 > ⚠️ **Early development**
-> This repository is under active development. The `document-monitor-agent`, `ingestion-agent`, and `cric-agent` are ready for use. Other agents are planned.
+> This repository is under active development. The `document-monitor`, `ingestion`, and `cric` services are ready for use. Other agents are planned.
 
 ---
 
@@ -92,7 +92,7 @@ Watches a directory for new or changed documents and ingests them into ChromaDB 
 
 ### `ingestion-agent` ✅ Ready
 
-Periodically downloads job metadata from [BigPanda](https://bigpanda.cern.ch) for a configured list of ATLAS computing queues and persists the data in a local [DuckDB](https://duckdb.org) database for downstream use by Bamboo / AskPanDA. Stores per-job records, facet summaries, and error frequency tables. Supports one-shot and long-running daemon modes.
+Periodically downloads job metadata from [BigPanda](https://bigpanda.cern.ch) for a configured list of ATLAS computing queues and persists the data in a local [DuckDB](https://duckdb.org) database for downstream use by Bamboo. Stores per-job records, facet summaries, and error frequency tables. Supports one-shot and long-running daemon modes.
 
 Key features:
 - Configurable queue list, poll cycle (default: 30 min), and inter-queue delay
@@ -134,7 +134,7 @@ Will build embedding indices for plugin corpora from sources including DAST dige
 
 ### `feedback-agent` 📋 Planned
 
-Will capture user feedback from AskPanDA (e.g. *helpful / not helpful*) and store it in structured form for later analysis.
+Will capture user feedback from Bamboo (e.g. *helpful / not helpful*) and store it in structured form for later analysis.
 
 ### `metrics-agent` 📋 Planned
 
@@ -209,7 +209,7 @@ bamboo-mcp-services/
 │     │  ├─ index_builder_agent/     # planned
 │     │  ├─ feedback_agent/          # planned
 │     │  └─ metrics_agent/           # planned
-│     ├─ plugin/                     # Bamboo / AskPanDA plugin adapter
+│     ├─ plugin/                     # Bamboo MCP plugin adapter
 │     └─ resources/
 │        └─ config/
 │           ├─ ingestion-agent.yaml
@@ -271,7 +271,7 @@ GitHub Actions runs linting (`pylint`, `flake8`) and the full unit test suite (`
 
 ## Relationship to Bamboo
 
-The `plugin/` package provides the integration layer between AskPanDA-ATLAS Agents and the Bamboo Toolkit, keeping agent logic independent of the UI and orchestration layer.
+The `plugin/` package provides the integration layer between Bamboo MCP Services and the Bamboo Toolkit, keeping service logic independent of the UI and orchestration layer.
 
 ---
 
