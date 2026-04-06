@@ -1,1 +1,0 @@
-"""Document monitor agent package."""
