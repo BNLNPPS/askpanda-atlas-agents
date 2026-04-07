@@ -1,5 +1,6 @@
 """Ingestion agent for fetching and normalizing PanDA data sources."""
 from __future__ import annotations
+import json
 import uuid
 import time
 import logging
@@ -45,13 +46,21 @@ class BigPandaJobsConfig:
 
     Attributes:
         enabled: Whether to run the BigPanda jobs fetcher at all.
-        queues: List of computing-site queue names to poll.
+        queues: Fallback list of computing-site queue names.  Ignored when
+            ``cric_path`` points to an existing file.
+        cric_path: Optional path to a ``cric_pandaqueues.json`` file produced
+            by the CRIC agent.  When the file exists, its top-level keys are
+            used as the queue list and ``queues`` is ignored.
+        max_queues: Maximum number of queues to process per cycle.  ``0`` (the
+            default) means no limit — all discovered queues are polled.
         cycle_interval_s: Seconds between full polling cycles (default: 30 min).
         inter_queue_delay_s: Seconds to wait between consecutive queue fetches
             within a single cycle (default: 60 s).
     """
     enabled: bool = True
     queues: List[str] = field(default_factory=lambda: list(DEFAULT_QUEUES))
+    cric_path: Optional[str] = None
+    max_queues: int = 0
     cycle_interval_s: int = DEFAULT_CYCLE_INTERVAL_S
     inter_queue_delay_s: int = DEFAULT_INTER_QUEUE_DELAY_S
 
@@ -100,22 +109,77 @@ class IngestionAgent(Agent):
         self._source_last: Dict[str, float] = {}
         self._bpjobs_fetcher: Optional[BigPandaJobsFetcher] = None
 
+    def _resolve_queues(self) -> List[str]:
+        """Determine the list of queues to poll, applying cric_path and max_queues.
+
+        If ``config.bigpanda_jobs.cric_path`` is set and the file exists, the
+        queue names are extracted from the top-level keys of the JSON object.
+        Otherwise, ``config.bigpanda_jobs.queues`` is used as a fallback.
+
+        In both cases, if ``config.bigpanda_jobs.max_queues`` is greater than
+        zero the list is truncated to that length.
+
+        Returns:
+            Resolved (and possibly truncated) list of queue names.
+        """
+        bpcfg = self.config.bigpanda_jobs
+        queues: List[str]
+
+        cric_path = bpcfg.cric_path
+        if cric_path:
+            import os
+            if os.path.exists(cric_path):
+                try:
+                    with open(cric_path, 'r') as fh:
+                        data = json.load(fh)
+                    queues = list(data.keys())
+                    logger.info(
+                        "IngestionAgent: loaded %d queues from CRIC file %s",
+                        len(queues), cric_path,
+                    )
+                except Exception as exc:
+                    logger.warning(
+                        "IngestionAgent: failed to read CRIC file %s (%s) — falling back to queues list",
+                        cric_path, exc,
+                    )
+                    queues = list(bpcfg.queues)
+            else:
+                logger.warning(
+                    "IngestionAgent: cric_path %r does not exist — falling back to queues list",
+                    cric_path,
+                )
+                queues = list(bpcfg.queues)
+        else:
+            queues = list(bpcfg.queues)
+
+        if bpcfg.max_queues and bpcfg.max_queues > 0:
+            original_count = len(queues)
+            queues = queues[:bpcfg.max_queues]
+            if len(queues) < original_count:
+                logger.info(
+                    "IngestionAgent: max_queues=%d — using %d of %d available queues",
+                    bpcfg.max_queues, len(queues), original_count,
+                )
+
+        return queues
+
     def _start_impl(self) -> None:
         """Initialize the DuckDB store and the BigPanda jobs fetcher."""
         self.store = DuckDBStore(self.config.duckdb_path)
 
         bpcfg = self.config.bigpanda_jobs
         if bpcfg.enabled:
+            queues = self._resolve_queues()
             logger.info(
                 "IngestionAgent: BigPanda jobs fetcher enabled – queues=%s "
                 "cycle_interval=%ds inter_queue_delay=%ds",
-                bpcfg.queues,
+                queues,
                 bpcfg.cycle_interval_s,
                 bpcfg.inter_queue_delay_s,
             )
             self._bpjobs_fetcher = BigPandaJobsFetcher(
                 conn=self.store._conn,
-                queues=bpcfg.queues,
+                queues=queues,
                 cycle_interval_s=bpcfg.cycle_interval_s,
                 inter_queue_delay_s=bpcfg.inter_queue_delay_s,
             )

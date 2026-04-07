@@ -132,18 +132,21 @@ src/bamboo_mcp_services/resources/config/ingestion-agent.yaml
 ### Full example
 
 ```yaml
-sources:
-  - name: example_cric
-    type: cric_queue_data
-    mode: file
-    path: src/bamboo_mcp_services/resources/config/example_queue.json
-    interval_s: 300
-
 bigpanda_jobs:
   enabled: true
+
+  # When cric_path points to an existing cric_pandaqueues.json file the queue
+  # names are read from the JSON keys and the 'queues' list is ignored.
+  cric_path: /cvmfs/atlas.cern.ch/repo/sw/local/etc/cric_pandaqueues.json
+
+  # Fallback list — used only when cric_path is absent or the file does not exist.
   queues:
     - SWT2_CPB
     - BNL
+
+  # Cap the number of queues processed per cycle.  0 = no limit.
+  max_queues: 0
+
   cycle_interval_s: 1800      # 30 minutes
   inter_queue_delay_s: 60     # 1 minute between queues
 
@@ -151,12 +154,34 @@ duckdb_path: "jobs.duckdb"
 tick_interval_s: 1.0
 ```
 
+### Queue discovery via CRIC
+
+In production, ATLAS has hundreds of computing queues. Listing them all manually
+in the YAML is impractical. The recommended approach is to point `cric_path` at
+the `cric_pandaqueues.json` file maintained by the CRIC agent on CVMFS:
+
+```
+/cvmfs/atlas.cern.ch/repo/sw/local/etc/cric_pandaqueues.json
+```
+
+The top-level keys of that JSON object are the PanDA queue names. When the file
+exists the `queues` list is silently ignored. If the file cannot be read (missing
+CVMFS mount, I/O error, malformed JSON), a warning is logged and the agent falls
+back to the `queues` list — no crash.
+
+Because the full CRIC file contains ~700 queues, downloading all of them in one
+cycle can take many hours with the default 60-second inter-queue delay. Use
+`max_queues` (YAML) or `--max-queues` (CLI) to cap the number of queues
+processed per cycle.
+
 ### `bigpanda_jobs` options
 
 | Key | Default | Description |
 |---|---|---|
 | `enabled` | `true` | Enable or disable the BigPanda jobs fetcher entirely |
-| `queues` | `["SWT2_CPB", "BNL"]` | List of computing-site queue names to poll |
+| `cric_path` | *(none)* | Path to `cric_pandaqueues.json`. When set and the file exists, queue names are read from its keys and `queues` is ignored |
+| `queues` | `["SWT2_CPB", "BNL"]` | Fallback list of computing-site queue names to poll (used only when `cric_path` is absent or file is missing) |
+| `max_queues` | `0` | Maximum queues to process per cycle. `0` means no limit — all discovered queues are polled |
 | `cycle_interval_s` | `1800` | Minimum seconds between full polling cycles |
 | `inter_queue_delay_s` | `60` | Seconds to sleep between consecutive queue downloads |
 
@@ -208,17 +233,19 @@ Loops indefinitely, calling `tick()` every `tick_interval_s` seconds. The BigPan
 | `--config`, `-c` | `src/.../ingestion-agent.yaml` | Path to the YAML configuration file |
 | `--once` | off | Run a single tick then exit. Inter-queue delay is suppressed so all queues download back-to-back |
 | `--inter-queue-delay SECONDS` | *(from YAML)* | Override `inter_queue_delay_s` at runtime without editing the config file. Set to `0` to disable the delay entirely, e.g. during debugging |
+| `--max-queues N` | *(from YAML)* | Override `max_queues` at runtime. Set to `0` to process all available queues |
 | `--log-file PATH` | `ingestion-agent.log` | Rotating log file (10 MB × 5 backups). Pass `""` to disable file logging |
 | `--log-level LEVEL` | `INFO` | Minimum log level for both console and file output. One of `DEBUG`, `INFO`, `WARNING`, `ERROR` |
 
 ### Debugging tips
 
-To download all queues as quickly as possible without editing the config file:
+To do a quick test run against the full CRIC queue list without editing the config file — process only the first 10 queues with no inter-queue delay:
 
 ```bash
 bamboo-ingestion \
   --config src/bamboo_mcp_services/resources/config/ingestion-agent.yaml \
   --once \
+  --max-queues 10 \
   --inter-queue-delay 0 \
   --log-level DEBUG
 ```

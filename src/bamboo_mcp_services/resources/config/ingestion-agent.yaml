@@ -1,10 +1,3 @@
-sources:
-  - name: example_cric
-    type: cric_queue_data
-    mode: file
-    path: src/bamboo_mcp_services/resources/config/example_queue.json
-    interval_s: 1
-
 # BigPanda jobs downloader configuration.
 # Downloads job data from https://bigpanda.cern.ch/jobs/?computingsite=<QUEUE>&json&hours=1
 # for each queue in the list, once per cycle_interval_s seconds.
@@ -12,9 +5,25 @@ sources:
 # to avoid overloading the server and the database.
 bigpanda_jobs:
   enabled: true
+
+  # Path to a cric_pandaqueues.json file (as produced by the CRIC agent).
+  # When set and the file exists, queue names are extracted from the JSON keys
+  # and the 'queues' list below is ignored.
+  # Typical CVMFS path:
+  #   cric_path: /cvmfs/atlas.cern.ch/repo/sw/local/etc/cric_pandaqueues.json
+  cric_path: /cvmfs/atlas.cern.ch/repo/sw/local/etc/cric_pandaqueues.json
+
+  # Fallback queue list — used only when cric_path is not set or the file
+  # does not exist.
   queues:
     - SWT2_CPB
     - BNL
+
+  # Maximum number of queues to process in a single cycle.
+  # Useful to limit the runtime when cric_path points to the full list of
+  # 230 ATLAS queues.  Set to 0 (or omit) to process all queues.
+  max_queues: 0
+
   cycle_interval_s: 1800      # 30 minutes
   inter_queue_delay_s: 60     # 1 minute between queues
 

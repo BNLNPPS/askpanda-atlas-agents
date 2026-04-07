@@ -79,6 +79,15 @@ def build_parser() -> argparse.ArgumentParser:
         help='Override the inter-queue sleep duration in seconds (overrides the YAML value). '
              'Set to 0 to disable the delay entirely, e.g. during debugging.',
     )
+    p.add_argument(
+        '--max-queues',
+        type=int,
+        default=None,
+        metavar='N',
+        help='Override the maximum number of queues to process per cycle (overrides the YAML '
+             'value). Set to 0 to process all available queues. Useful for quick test runs '
+             'when cric_path points to the full ~700-queue CRIC file.',
+    )
     return p
 
 
@@ -147,6 +156,8 @@ def _bigpanda_jobs_config_from_dict(cfg: dict) -> BigPandaJobsConfig:
     return BigPandaJobsConfig(
         enabled=cfg.get('enabled', True),
         queues=cfg.get('queues', list(DEFAULT_QUEUES)),
+        cric_path=cfg.get('cric_path', None),
+        max_queues=cfg.get('max_queues', 0),
         cycle_interval_s=cfg.get('cycle_interval_s', DEFAULT_CYCLE_INTERVAL_S),
         inter_queue_delay_s=cfg.get('inter_queue_delay_s', DEFAULT_INTER_QUEUE_DELAY_S),
     )
@@ -220,20 +231,39 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         bpjobs_cfg = BigPandaJobsConfig(
             enabled=bpjobs_cfg.enabled,
             queues=bpjobs_cfg.queues,
+            cric_path=bpjobs_cfg.cric_path,
+            max_queues=bpjobs_cfg.max_queues,
             cycle_interval_s=bpjobs_cfg.cycle_interval_s,
             inter_queue_delay_s=args.inter_queue_delay,
+        )
+    if args.max_queues is not None:
+        logger.info(
+            "Overriding max_queues: %d (YAML value was %d)",
+            args.max_queues,
+            bpjobs_cfg.max_queues,
+        )
+        bpjobs_cfg = BigPandaJobsConfig(
+            enabled=bpjobs_cfg.enabled,
+            queues=bpjobs_cfg.queues,
+            cric_path=bpjobs_cfg.cric_path,
+            max_queues=args.max_queues,
+            cycle_interval_s=bpjobs_cfg.cycle_interval_s,
+            inter_queue_delay_s=bpjobs_cfg.inter_queue_delay_s,
         )
     duckdb_path = cfg.get('duckdb_path', ':memory:')
     tick_interval_s = float(cfg.get('tick_interval_s', 1.0))
 
     logger.info(
         "Configuration: duckdb_path=%s  tick_interval=%.1fs  "
-        "bigpanda_jobs.enabled=%s  bigpanda_jobs.queues=%s  "
+        "bigpanda_jobs.enabled=%s  bigpanda_jobs.cric_path=%s  "
+        "bigpanda_jobs.queues=%s  bigpanda_jobs.max_queues=%s  "
         "bigpanda_jobs.cycle_interval=%ds  bigpanda_jobs.inter_queue_delay=%ds",
         duckdb_path,
         tick_interval_s,
         bpjobs_cfg.enabled,
+        bpjobs_cfg.cric_path,
         bpjobs_cfg.queues,
+        bpjobs_cfg.max_queues if bpjobs_cfg.max_queues else "unlimited",
         bpjobs_cfg.cycle_interval_s,
         bpjobs_cfg.inter_queue_delay_s,
     )

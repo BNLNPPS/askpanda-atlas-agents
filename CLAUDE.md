@@ -10,13 +10,12 @@ effectively in this repository.
 **Bamboo MCP Services** is a collection of Python services that feed data into
 the Bamboo Toolkit, supporting ATLAS Experiment computing operations at CERN.
 
-Two agents are production-ready; others are planned:
-
 | Agent | Status | Entry point |
 |---|---|---|
 | `ingestion-agent` | ✅ Ready | `bamboo-ingestion` |
 | `document-monitor-agent` | ✅ Ready | `bamboo-document-monitor` |
 | `cric-agent` | ✅ Ready | `bamboo-cric` |
+| `github-doc-sync-agent` | ✅ Ready | `bamboo-github-sync` |
 | `dast-agent` | 📋 Planned | — |
 | `supervisor-agent` | 📋 Planned | — |
 
@@ -24,15 +23,20 @@ Two agents are production-ready; others are planned:
 
 ## Install and setup
 
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -e .          # installs runtime deps + registers CLI entry points
-pip install -e ".[dev]"   # adds flake8, pytest, pytest-cov
-```
+The project uses a **conda environment**, not venv.
 
-Runtime dependencies (declared in `pyproject.toml [project.dependencies]`):
-`duckdb>=0.10`, `requests>=2.31`, `pyyaml>=6.0`, `pandas>=2.0`.
+```bash
+# First-time setup:
+conda create -n bamboo-mcp-services python=3.12
+conda activate bamboo-mcp-services
+pip install -r requirements.txt
+pip install -e ".[dev]"   # runtime deps + flake8, pytest, pytest-cov
+
+# Returning developer:
+conda activate bamboo-mcp-services
+pip install -e .          # pick up any dependency changes
+pytest                    # should show 136 passed
+```
 
 The project uses a `src/` layout — `pip install -e .` must be run before
 importing the package or running tests.
@@ -42,44 +46,46 @@ importing the package or running tests.
 ## Running the agents
 
 ```bash
-# Ingestion agent — download all queues once and exit:
+# GitHub documentation sync — download docs from GitHub repos:
+bamboo-github-sync \
+  --config src/bamboo_mcp_services/resources/config/github-doc-sync-agent.yaml \
+  --once
+# Set GITHUB_TOKEN env var for private repos or to raise rate limit to 5000/hour.
+# Force re-download by deleting: raw/owner/repo/.sync_state.json
+
+# Document monitor — ingest normalised docs into ChromaDB:
+bamboo-document-monitor \
+  --dir /abs/path/to/RAG \
+  --chroma-dir /abs/path/to/.chromadb \
+  --once
+# Always use absolute paths for --chroma-dir.
+# First run on a new machine needs HF_HUB_OFFLINE=0 to download the model.
+
+# Ingestion agent — download BigPanda job metadata:
 bamboo-ingestion \
   --config src/bamboo_mcp_services/resources/config/ingestion-agent.yaml \
   --once
 
-# Ingestion agent — daemon mode (polls every 30 minutes):
-bamboo-ingestion \
-  --config src/bamboo_mcp_services/resources/config/ingestion-agent.yaml
-
-# Useful debug flags:
-#   --log-level DEBUG
-#   --inter-queue-delay 0     # skip the 60s wait between queues
-#   --log-file ""             # disable file logging
-
-# Inspect the resulting database:
-python scripts/dump_ingestion_db.py --count
-python scripts/dump_ingestion_db.py --table jobs --queue BNL --limit 5
-python scripts/dump_ingestion_db.py --table jobs --queue BNL --format json | jq '.pandaid'
-
-# CRIC agent — load queuedata once and exit:
+# CRIC agent — load ATLAS queue metadata from CVMFS:
 bamboo-cric \
   --data cric.db \
   --once
 
-# CRIC agent — daemon mode (re-reads CVMFS file every 10 minutes):
-bamboo-cric \
-  --data cric.db \
-  --config src/bamboo_mcp_services/resources/config/cric-agent.yaml
+# All agents support --once (single tick then exit) and daemon mode (loop forever).
+# All agents support --log-level DEBUG and --log-file PATH.
+```
 
-# Useful debug flags (same as ingestion agent):
-#   --log-level DEBUG
-#   --log-file ""             # disable file logging
+Inspect databases:
 
-# Inspect the resulting database (requires duckdb CLI — see note below):
-duckdb cric.db "SELECT COUNT(*) FROM queuedata"
+```bash
+# BigPanda jobs:
+python scripts/dump_ingestion_db.py --count
+python scripts/dump_ingestion_db.py --table jobs --queue BNL --limit 5
+
+# CRIC queuedata (requires duckdb CLI — brew install duckdb):
 duckdb cric.db "SELECT queue, status, cloud, tier FROM queuedata LIMIT 10"
-# If the duckdb CLI is not installed, use Python instead:
-# python -c "import duckdb; print(duckdb.connect('cric.db', read_only=True).execute('SELECT queue, status, cloud, tier FROM queuedata LIMIT 10').df())"
+# Without CLI:
+python -c "import duckdb; print(duckdb.connect('cric.db', read_only=True).execute('SELECT COUNT(*) FROM queuedata').fetchone())"
 ```
 
 ---
@@ -87,33 +93,28 @@ duckdb cric.db "SELECT queue, status, cloud, tier FROM queuedata LIMIT 10"
 ## Tests and linting
 
 ```bash
-pytest                                              # run all tests
+pytest                                              # run all 136 tests
 pytest --cov=bamboo_mcp_services --cov-report=term-missing
-pytest tests/agents/ingestion_agent/ -v            # ingestion agent tests only
-pytest tests/agents/cric_agent/ -v                 # CRIC agent tests only
+pytest tests/agents/github_doc_sync_agent/ -v      # new agent tests
+pytest tests/agents/cric_agent/ -v                 # CRIC agent tests
 flake8 src tests                                    # must be clean before commit
 ```
 
 Linting rules (`.flake8`):
 - Max line length: **160**
-- Ignored: E262, E265, E266, N804, W504, B902, N818
+- Ignored: E262, E265, E266, N804, W503, W504, B902, N818
+- Excluded: `.venv`, `__pycache__`, `*.egg-info`, `build`, `dist`
 - **E241 (multiple spaces after `:`) is NOT ignored** — do not align dict values
-
-Pre-commit hooks run trailing-whitespace, large-file checks, flake8, and a
-circular-import detector.  Run manually with `pre-commit run --all-files`.
 
 ---
 
 ## Docstring style
 
-All docstrings must use **Google style**.  Every public function, method, and
-class requires a docstring.  Scripts (`scripts/`) follow the same convention.
+All docstrings must use **Google style**.
 
 ```python
 def my_function(x: int, y: str) -> bool:
     """One-line summary.
-
-    Longer description if needed.
 
     Args:
         x: Description of x.
@@ -133,153 +134,127 @@ def my_function(x: int, y: str) -> bool:
 
 ```
 bamboo-mcp-services/
-├─ CLAUDE.md                          ← you are here
-├─ README.md                          ← project overview and quick-start
-├─ README-ingestion_agent.md          ← ingestion agent full docs
-├─ README-document_monitor_agent.md   ← document monitor full docs
-├─ README-cric_agent.md               ← CRIC agent full docs
-├─ HANDOVER-bamboo-sql-tool.md        ← handover notes for the Bamboo SQL tool
-├─ pyproject.toml                     ← dependencies, entry points, build config
-├─ requirements.txt                   ← flat dep list (mirrors pyproject.toml)
-├─ .flake8                            ← linting config
-├─ .pre-commit-config.yaml            ← pre-commit hooks
+├─ CLAUDE.md
+├─ README.md
+├─ README-ingestion_agent.md
+├─ README-document_monitor_agent.md
+├─ README-cric_agent.md
+├─ README-github_doc_sync_agent.md
+├─ HANDOVER-bamboo-sql-tool.md
+├─ HANDOVER-cric-mcp-tool.md
+├─ HANDOVER-github-doc-sync-agent.md   ← latest session handover
+├─ pyproject.toml
+├─ .flake8
 ├─ scripts/
-│  └─ dump_ingestion_db.py            ← CLI tool to inspect jobs.duckdb
+│  └─ dump_ingestion_db.py
 ├─ src/bamboo_mcp_services/
 │  ├─ agents/
-│  │  ├─ base.py                      ← Agent ABC and lifecycle state machine
-│  │  ├─ ingestion_agent/
-│  │  │  ├─ agent.py                  ← IngestionAgent, config dataclasses
-│  │  │  ├─ bigpanda_jobs_fetcher.py  ← BigPanda download loop + DB writes
-│  │  │  └─ cli.py                    ← CLI entry point
-│  │  ├─ cric_agent/
-│  │  │  ├─ agent.py                  ← CricAgent, CricAgentConfig
-│  │  │  ├─ cric_fetcher.py           ← file read, hash check, DROP/CREATE/INSERT
-│  │  │  └─ cli.py                    ← CLI entry point (bamboo-cric)
-│  │  ├─ document_monitor_agent/      ← ChromaDB-backed document watcher
-│  │  └─ dummy_agent/                 ← minimal no-op agent (template + tests)
+│  │  ├─ base.py                       ← Agent ABC and lifecycle state machine
+│  │  ├─ github_doc_sync_agent/
+│  │  │  ├─ agent.py                   ← GithubDocSyncAgent, GithubDocSyncConfig
+│  │  │  ├─ github_doc_syncer.py       ← interval gate, multi-repo loop
+│  │  │  ├─ github_markdown_sync.py    ← vendored GitHub API + sync library
+│  │  │  └─ cli.py                     ← bamboo-github-sync
+│  │  ├─ document_monitor_agent/       ← ChromaDB-backed document watcher
+│  │  ├─ ingestion_agent/              ← BigPanda jobs ingestion
+│  │  ├─ cric_agent/                   ← CRIC queuedata ingestion
+│  │  └─ dummy_agent/                  ← minimal no-op agent (template)
 │  └─ common/
-│     ├─ panda/
-│     │  └─ source.py                 ← file/URL fetch with content hashing
+│     ├─ panda/source.py               ← file/URL fetch with content hashing
 │     └─ storage/
-│        ├─ duckdb_store.py           ← low-level DuckDB helpers
-│        ├─ schema.py                 ← DDL + apply_schema() + migration (jobs tables)
-│        └─ schema_annotations.py    ← field descriptions for jobs + queuedata tables
+│        ├─ duckdb_store.py
+│        ├─ schema.py
+│        └─ schema_annotations.py      ← field descriptions for LLM prompts
 ├─ tests/
 │  └─ agents/
-│     ├─ ingestion_agent/
-│     │  ├─ test_bigpanda_jobs_fetcher.py   ← 18 tests
-│     │  └─ test_ingestion_agent.py
-│     ├─ cric_agent/
-│     │  └─ test_cric_agent.py              ← 43 tests
-│     ├─ dummy_agent/test_dummy_agent.py
-│     └─ test_base_agent.py                 ← 8 lifecycle tests
+│     ├─ github_doc_sync_agent/        ← 136 tests
+│     ├─ cric_agent/                   ← 43 tests
+│     ├─ ingestion_agent/              ← 19 tests
+│     ├─ dummy_agent/                  ← 2 tests
+│     └─ test_base_agent.py            ← 8 tests
 └─ src/bamboo_mcp_services/resources/config/
-   ├─ ingestion-agent.yaml            ← default ingestion agent configuration
-   └─ cric-agent.yaml                 ← default CRIC agent configuration
+   ├─ github-doc-sync-agent.yaml
+   ├─ ingestion-agent.yaml
+   └─ cric-agent.yaml
 ```
+
+---
+
+## github_doc_sync_agent — key design decisions
+
+**Vendored library**: `github_markdown_sync.py` is copied verbatim from the
+standalone `github-documentation-sync` project.  Do not modify it lightly —
+any changes should also be considered for upstreaming.
+
+**Output structure**: Files are written into `destination/owner/repo_name/`
+subdirectories (not flat into `destination`).  This avoids name collisions when
+multiple repos share a destination root and makes file provenance obvious.
+
+**State file per repo**: `.sync_state.json` lives inside
+`destination/owner/repo_name/`, not at the top level.  One state file per repo
+entry — fully independent.
+
+**`within_hours` skipped on first run**: The recency gate only fires when a
+prior `.sync_state.json` exists.  First run always downloads regardless of
+commit age.
+
+**Per-repo failure isolation**: Exceptions in one repo are caught and recorded
+but never abort the remaining repos.
+
+**Force re-download**: Delete `destination/owner/repo_name/.sync_state.json`.
+
+---
+
+## document_monitor_agent — key design decisions
+
+**Recursive file discovery**: Uses `rglob("*")` (not `iterdir()`), so it
+traverses subdirectories.  This is necessary to pick up files written by the
+github sync agent into `owner/repo_name/` subdirectories.
+
+**`--once` flag**: Runs a single poll cycle and exits.  Use this in cron
+pipelines after `bamboo-github-sync --once`.
+
+**Always use absolute paths** for `--chroma-dir` to avoid the database being
+written to different locations depending on the working directory.
+
+**First run on a new machine** requires `HF_HUB_OFFLINE=0` to download the
+embedding model.  Subsequent runs use the cached model automatically.
 
 ---
 
 ## CRIC agent — key design decisions
 
-**Source**: CVMFS file
-`/cvmfs/atlas.cern.ch/repo/sw/local/etc/cric_pandaqueues.json`.
-Top-level dict of `{queue_name: {field: value, ...}}` — currently ~700 queues,
-~90 fields each.
+See `HANDOVER-cric-mcp-tool.md` for full detail.  Summary:
 
-**Database**: DuckDB file (path set via `--data PATH`, no default).  Single
-table `queuedata` — full replace on each changed load, no history.  A
-`snapshots` table (from `DuckDBStore`) records one audit row per fetch attempt.
-
-**Hash-based skip**: On every poll the file is read and SHA-256 hashed.  The
-DB write is skipped entirely when the hash matches the previous load.  This is
-the normal case between CVMFS refresh cycles (~30 min propagation delay).
-
-**Dynamic type inference**: Column types are inferred from the data at load
-time (`BIGINT`, `DOUBLE`, `TEXT`) rather than from a fixed DDL.  CRIC adds and
-renames fields without notice; dynamic inference avoids breakage.  Booleans
-require explicit handling because Python `bool` is a subclass of `int` — the
-`_to_cell_value` function checks `isinstance(v, bool)` before `isinstance(v,
-int)` to store them as TEXT rather than BIGINT.
-
-**`_data`-suffix fields dropped**: `coreenergy_data`, `corepower_data`, and
-`maxdiskio_data` are internal CRIC resolution-chain dicts.  They are stripped
-in `_build_rows` via `_SKIP_FIELDS` and never written to the database.
-
-**`--data PATH` required CLI flag**: The DuckDB path is not in the YAML config.
-Keeping it as a required flag makes it impossible to run the agent without
-explicitly choosing where the database lives, which prevents accidental
-overwrites in shared environments.
-
-**DuckDB concurrency**: DuckDB allows multiple readers but only one writer.
-The CRIC agent writes to `cric.db`; the ingestion agent writes to `jobs.duckdb`
-(or whatever path is configured).  These are separate files — no write
-conflicts.  Bamboo should open both files read-only.
+- Source: CVMFS file `cric_pandaqueues.json` (~700 queues, ~90 fields each)
+- Database: DuckDB `cric.db`, single `queuedata` table, full replace on change
+- Hash-based skip: file is SHA-256 hashed; DB write skipped when unchanged
+- Dynamic type inference: column types inferred from data, not fixed DDL
+- `--data PATH` is a required CLI flag, not in the YAML config
 
 ---
 
 ## Ingestion agent — key design decisions
 
-**BigPanda source**: `https://bigpanda.cern.ch/jobs/?computingsite=<QUEUE>&json&hours=1`
-Returns jobs active in the last hour for one queue.  Hardcoded queues for now:
-`SWT2_CPB`, `BNL` (configured in `ingestion-agent.yaml`).
+See `HANDOVER-bamboo-sql-tool.md` for full detail.  Summary:
 
-**Database**: DuckDB file (`jobs.duckdb` by default).  Three data tables:
-- `jobs` — one row per PanDA job, upserted on `pandaid`; accumulates history
-- `selectionsummary` — facet counts per queue, replaced each cycle
-- `errors_by_count` — ranked error frequency per queue, replaced each cycle
-
-**Bulk inserts**: All DB writes use `pandas.DataFrame` + `INSERT … SELECT * FROM df`
-rather than `executemany`.  This is ~4000× faster for 10k-row payloads (DuckDB
-is a columnar engine optimised for bulk operations, not row-by-row inserts).
-
-**Inter-queue delay**: 60 seconds between queue downloads in daemon mode, to
-avoid overloading the server.  Skipped automatically in `--once` mode and
-overridable with `--inter-queue-delay 0`.
-
-**Ctrl-C handling**: DuckDB converts `KeyboardInterrupt` into
-`RuntimeError("Query interrupted")` during query execution.  The fetcher detects
-this via `exc.__context__` and re-raises as `KeyboardInterrupt` so the CLI
-shutdown path fires correctly.
-
-**Schema migrations**: `apply_schema()` in `schema.py` runs a migration check
-before creating tables.  Currently handles one historical migration: the
-`selectionsummary` and `errors_by_count` tables had a single-column `id`
-primary key that caused constraint violations when two queues were inserted;
-this was fixed to a composite `PRIMARY KEY (id, _queue)`.
+- Source: BigPanda HTTP API per queue
+- Database: DuckDB `jobs.duckdb`, three tables: `jobs`, `selectionsummary`, `errors_by_count`
+- Bulk inserts via pandas DataFrame (not `executemany`)
+- 60s inter-queue delay in daemon mode; skipped in `--once` mode
+- **CRIC-driven queue discovery**: `bigpanda_jobs.cric_path` in the YAML points to `cric_pandaqueues.json`; top-level JSON keys are the PanDA queue names.  Falls back to the `queues` list if the file is absent.
+- **`max_queues`**: caps the number of queues processed per cycle; useful when `cric_path` exposes ~700 queues and you only want a subset.  Override at runtime with `--max-queues N`.
 
 ---
 
 ## Annotated schema for LLM context
 
-`schema_annotations.py` provides plain-English descriptions of every database
-column, intended for injection into LLM system prompts.  It covers two
-databases:
-
-**BigPanda jobs** (`jobs.duckdb`):
-
-```python
-from bamboo_mcp_services.common.storage.schema_annotations import get_schema_context
-
-# Returns a multi-line "Table: … column TYPE description" block
-context = get_schema_context()                  # all three tables
-context = get_schema_context(["jobs"])          # jobs only
-```
-
-**CRIC queuedata** (`cric.db`):
-
 ```python
 from bamboo_mcp_services.common.storage.schema_annotations import (
-    get_queuedata_schema_context,
-    QUEUEDATA_FIELD_DESCRIPTIONS,
+    get_schema_context,             # jobs.duckdb — all three tables
+    get_queuedata_schema_context,   # cric.db — queuedata table
 )
-
-context = get_queuedata_schema_context()        # queuedata table
 ```
-
-See `HANDOVER-bamboo-sql-tool.md` for how to use this when building the
-Bamboo text-to-SQL tool.
 
 ---
 
@@ -289,53 +264,42 @@ All agents implement the `Agent` ABC from `agents/base.py`:
 
 ```python
 agent.start()   # → RUNNING; initialises resources
-agent.tick()    # → executes one unit of work; raises if not RUNNING
-agent.health()  # → HealthReport (state, last tick/success/error timestamps)
+agent.tick()    # → one unit of work; raises if not RUNNING
+agent.health()  # → HealthReport (state, timestamps, agent-specific details)
 agent.stop()    # → STOPPED; releases resources
 ```
 
-`tick_once()` is an `IngestionAgent`-specific variant that passes `one_shot=True`
-to the fetcher, suppressing the inter-queue delay for one-shot CLI invocations.
-
 When adding a new agent:
-1. Subclass `Agent` and implement `_start_impl`, `_tick_impl`, `_stop_impl`
-2. Add a `cli.py` entry point
+1. Subclass `Agent`, implement `_start_impl`, `_tick_impl`, `_stop_impl`
+2. Add a `cli.py` with `--once`, `--log-level`, `--log-file`, SIGTERM handler
 3. Register in `pyproject.toml` under `[project.scripts]`
-4. Add tests (follow `tests/agents/dummy_agent/` as a template)
+4. Add config YAML under `resources/config/`
+5. Add tests in `tests/agents/<n>_agent/`
+6. Add `README-<n>_agent.md`, update `README.md` and this file
 
-The `cric_agent` is a good second reference example: simpler than
-`ingestion_agent` (no threads, no BigPanda API), and demonstrates the
-hash-based skip pattern for file-backed sources.
+Use `cric_agent` as the simplest template (no threads, no HTTP, no background
+fetcher).  Use `github_doc_sync_agent` as the template for agents that call
+external HTTP APIs.
 
 ---
 
 ## Common pitfalls
 
-**`duckdb: command not found`** — `pip install duckdb` (or `pip install -e .`)
-installs the Python package only, not the standalone CLI binary.  On macOS the
-recommended install is `brew install duckdb`.  Alternatively, download the
-binary directly into your conda env:
-`curl -L https://github.com/duckdb/duckdb/releases/download/v1.2.2/duckdb_cli-osx-universal.zip -o /tmp/duckdb_cli.zip && unzip /tmp/duckdb_cli.zip -d "$CONDA_PREFIX/bin/" && chmod +x "$CONDA_PREFIX/bin/duckdb"`.
-Note: `conda install -c conda-forge duckdb` does **not** install the CLI binary
-on macOS.  If you prefer no CLI install, query via Python:
-`python -c "import duckdb; print(duckdb.connect('cric.db', read_only=True).execute('SELECT COUNT(*) FROM queuedata').fetchone())"`.
-
 **`ModuleNotFoundError: bamboo_mcp_services`** — run `pip install -e .` from
-the repository root.
+the repo root.
 
-**DuckDB constraint errors after schema changes** — delete `jobs.duckdb` and
-let the agent recreate it, or rely on `apply_schema()` which runs migrations
-automatically.
+**`duckdb: command not found`** — `pip install duckdb` installs the Python
+package only, not the CLI binary.  Use `brew install duckdb` on macOS.
 
-**`flake8` E241 errors** — do not align dict values with extra spaces; use a
-single space after `:` in all dict literals.
+**flake8 E241** — do not align dict values with extra spaces after `:`.
 
-**`time.sleep` mock in tests causes infinite loop** — `_interruptible_sleep`
-loops on `time.monotonic()`; mocking `time.sleep` without also mocking
-`time.monotonic` causes an infinite loop.  Always mock
+**`time.sleep` mock in tests causes infinite loop** — mock
 `BigPandaJobsFetcher._interruptible_sleep` directly instead.
 
-**`json.dumps` emitting `NaN`/`Infinity`** — DuckDB returns Python `float('nan')`
-for null-ish float values.  `json.dumps` emits bare `NaN` which is not valid
-JSON and breaks `jq`.  Use `_to_json_safe()` from `dump_ingestion_db.py` to
-convert non-finite floats to `None` before serialising.
+**github-doc-sync skipping repos unexpectedly** — check that
+`destination/owner/repo_name/.sync_state.json` does not already exist from a
+previous run.  Delete it to force a re-download.
+
+**document-monitor not picking up new files** — confirm `--dir` points at the
+normalised output directory (`../RAG`), not the raw download directory
+(`../raw`).
