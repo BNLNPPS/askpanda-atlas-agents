@@ -44,6 +44,10 @@ pip install -e ".[dev]"
 ### Run the document monitor agent
 
 ```bash
+# Process all files once and exit:
+bamboo-document-monitor --dir ./documents --chroma-dir .chromadb --once
+
+# Run as a long-lived daemon (polls every 10 seconds):
 bamboo-document-monitor --dir ./documents --poll-interval 10 --chroma-dir .chromadb
 ```
 
@@ -103,7 +107,7 @@ Full documentation: [README-github_doc_sync_agent.md](./README-github_doc_sync_a
 
 ### `document-monitor-agent` ✅ Ready
 
-Watches a directory for new or changed documents and ingests them into ChromaDB for use in RAG pipelines. Extracts and chunks text from `.pdf`, `.docx`, `.txt`, and `.md` files, computes deterministic chunk IDs, and stores vectors and metadata locally.
+Watches a directory (including all subdirectories) for new or changed documents and ingests them into ChromaDB for use in RAG pipelines. Extracts and chunks text from `.pdf`, `.docx`, `.txt`, and `.md` files, computes deterministic chunk IDs, and stores vectors and metadata locally.
 
 → [Full documentation](./README-document_monitor_agent.md)
 
