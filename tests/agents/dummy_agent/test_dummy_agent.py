@@ -24,8 +24,8 @@ from __future__ import annotations
 import threading
 import time
 
-from askpanda_atlas_agents.agents.base import AgentState
-from askpanda_atlas_agents.agents.dummy_agent.agent import DummyAgent, DummyAgentConfig
+from bamboo_mcp_services.agents.base import AgentState
+from bamboo_mcp_services.agents.dummy_agent.agent import DummyAgent, DummyAgentConfig
 
 
 def test_dummy_agent_lifecycle_start_tick_stop() -> None:

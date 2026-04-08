@@ -25,7 +25,7 @@ from typing import Any, Mapping, Optional
 
 import pytest
 
-from askpanda_atlas_agents.agents.base import Agent, AgentState
+from bamboo_mcp_services.agents.base import Agent, AgentState
 
 
 class DummyAgent(Agent):

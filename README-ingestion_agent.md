@@ -22,14 +22,14 @@ A periodic data ingestion agent that downloads job metadata from the [BigPanda](
 The schema is defined in a dedicated Python module:
 
 ```
-src/askpanda_atlas_agents/common/storage/schema.py
+src/bamboo_mcp_services/common/storage/schema.py
 ```
 
 This module is the single source of truth for all table DDL. It can be imported by AskPanDA (or any other consumer) to validate, recreate, or introspect the schema without duplicating SQL strings:
 
 ```python
 import duckdb
-from askpanda_atlas_agents.common.storage.schema import apply_schema, table_names
+from bamboo_mcp_services.common.storage.schema import apply_schema, table_names
 
 conn = duckdb.connect("jobs.duckdb")
 apply_schema(conn)          # idempotent — safe to call on an existing database
@@ -116,7 +116,7 @@ pip install -e ".[dev]"
 ### Step 2 — Verify
 
 ```bash
-python -c "from askpanda_atlas_agents.agents.ingestion_agent.agent import IngestionAgent; print('OK')"
+python -c "from bamboo_mcp_services.agents.ingestion_agent.agent import IngestionAgent; print('OK')"
 ```
 
 ---
@@ -126,24 +126,27 @@ python -c "from askpanda_atlas_agents.agents.ingestion_agent.agent import Ingest
 The agent is configured via a YAML file. The default path is:
 
 ```
-src/askpanda_atlas_agents/resources/config/ingestion-agent.yaml
+src/bamboo_mcp_services/resources/config/ingestion-agent.yaml
 ```
 
 ### Full example
 
 ```yaml
-sources:
-  - name: example_cric
-    type: cric_queue_data
-    mode: file
-    path: src/askpanda_atlas_agents/resources/config/example_queue.json
-    interval_s: 300
-
 bigpanda_jobs:
   enabled: true
+
+  # When cric_path points to an existing cric_pandaqueues.json file the queue
+  # names are read from the JSON keys and the 'queues' list is ignored.
+  cric_path: /cvmfs/atlas.cern.ch/repo/sw/local/etc/cric_pandaqueues.json
+
+  # Fallback list — used only when cric_path is absent or the file does not exist.
   queues:
     - SWT2_CPB
     - BNL
+
+  # Cap the number of queues processed per cycle.  0 = no limit.
+  max_queues: 0
+
   cycle_interval_s: 1800      # 30 minutes
   inter_queue_delay_s: 60     # 1 minute between queues
 
@@ -151,12 +154,34 @@ duckdb_path: "jobs.duckdb"
 tick_interval_s: 1.0
 ```
 
+### Queue discovery via CRIC
+
+In production, ATLAS has hundreds of computing queues. Listing them all manually
+in the YAML is impractical. The recommended approach is to point `cric_path` at
+the `cric_pandaqueues.json` file maintained by the CRIC agent on CVMFS:
+
+```
+/cvmfs/atlas.cern.ch/repo/sw/local/etc/cric_pandaqueues.json
+```
+
+The top-level keys of that JSON object are the PanDA queue names. When the file
+exists the `queues` list is silently ignored. If the file cannot be read (missing
+CVMFS mount, I/O error, malformed JSON), a warning is logged and the agent falls
+back to the `queues` list — no crash.
+
+Because the full CRIC file contains ~700 queues, downloading all of them in one
+cycle can take many hours with the default 60-second inter-queue delay. Use
+`max_queues` (YAML) or `--max-queues` (CLI) to cap the number of queues
+processed per cycle.
+
 ### `bigpanda_jobs` options
 
 | Key | Default | Description |
 |---|---|---|
 | `enabled` | `true` | Enable or disable the BigPanda jobs fetcher entirely |
-| `queues` | `["SWT2_CPB", "BNL"]` | List of computing-site queue names to poll |
+| `cric_path` | *(none)* | Path to `cric_pandaqueues.json`. When set and the file exists, queue names are read from its keys and `queues` is ignored |
+| `queues` | `["SWT2_CPB", "BNL"]` | Fallback list of computing-site queue names to poll (used only when `cric_path` is absent or file is missing) |
+| `max_queues` | `0` | Maximum queues to process per cycle. `0` means no limit — all discovered queues are polled |
 | `cycle_interval_s` | `1800` | Minimum seconds between full polling cycles |
 | `inter_queue_delay_s` | `60` | Seconds to sleep between consecutive queue downloads |
 
@@ -188,7 +213,7 @@ Each entry under `sources` supports:
 ### One-shot (single tick)
 
 ```bash
-askpanda-ingestion-agent --config path/to/ingestion-agent.yaml --once
+bamboo-ingestion --config path/to/ingestion-agent.yaml --once
 ```
 
 Downloads all configured queues back-to-back (inter-queue delay suppressed) and exits. Useful for an initial data pull, cron-based scheduling, or debugging.
@@ -196,7 +221,7 @@ Downloads all configured queues back-to-back (inter-queue delay suppressed) and 
 ### Long-running daemon
 
 ```bash
-askpanda-ingestion-agent --config path/to/ingestion-agent.yaml
+bamboo-ingestion --config path/to/ingestion-agent.yaml
 ```
 
 Loops indefinitely, calling `tick()` every `tick_interval_s` seconds. The BigPanda jobs cycle fires at most once per `cycle_interval_s`. Stop with Ctrl-C or SIGTERM — both trigger a clean shutdown.
@@ -208,17 +233,19 @@ Loops indefinitely, calling `tick()` every `tick_interval_s` seconds. The BigPan
 | `--config`, `-c` | `src/.../ingestion-agent.yaml` | Path to the YAML configuration file |
 | `--once` | off | Run a single tick then exit. Inter-queue delay is suppressed so all queues download back-to-back |
 | `--inter-queue-delay SECONDS` | *(from YAML)* | Override `inter_queue_delay_s` at runtime without editing the config file. Set to `0` to disable the delay entirely, e.g. during debugging |
+| `--max-queues N` | *(from YAML)* | Override `max_queues` at runtime. Set to `0` to process all available queues |
 | `--log-file PATH` | `ingestion-agent.log` | Rotating log file (10 MB × 5 backups). Pass `""` to disable file logging |
 | `--log-level LEVEL` | `INFO` | Minimum log level for both console and file output. One of `DEBUG`, `INFO`, `WARNING`, `ERROR` |
 
 ### Debugging tips
 
-To download all queues as quickly as possible without editing the config file:
+To do a quick test run against the full CRIC queue list without editing the config file — process only the first 10 queues with no inter-queue delay:
 
 ```bash
-askpanda-ingestion-agent \
-  --config src/askpanda_atlas_agents/resources/config/ingestion-agent.yaml \
+bamboo-ingestion \
+  --config src/bamboo_mcp_services/resources/config/ingestion-agent.yaml \
   --once \
+  --max-queues 10 \
   --inter-queue-delay 0 \
   --log-level DEBUG
 ```
@@ -306,7 +333,7 @@ DESCRIBE jobs;
 
 ```python
 import duckdb
-from askpanda_atlas_agents.common.storage.schema import apply_schema
+from bamboo_mcp_services.common.storage.schema import apply_schema
 
 conn = duckdb.connect("jobs.duckdb", read_only=True)
 apply_schema(conn)  # no-op if tables already exist; ensures schema is present
@@ -347,11 +374,11 @@ IngestionAgent
 │   ├── generic sources    — file/URL sources, each with their own interval
 │   └── BigPandaJobsFetcher.run_cycle()
 │       ├── interval check (skip if < cycle_interval_s since last run)
-│       └── for each queue:
+│       └── for each queue (logs progress: "processing queue 'X' (N/total)"):
 │           ├── GET https://bigpanda.cern.ch/jobs/?computingsite=<Q>&json&hours=1
 │           ├── _upsert_jobs()        → jobs table
 │           ├── _insert_summary()     → selectionsummary table
-│           ├── _insert_errors()      → errors_by_count table
+│           ├── _insert_errors()      → errors_by_count table      (all three in one transaction)
 │           └── sleep inter_queue_delay_s  (skipped after last queue)
 └── _stop_impl()           — releases fetcher and DuckDB connection
 ```
@@ -362,7 +389,7 @@ Key modules:
 |---|---|
 | `agents/ingestion_agent/agent.py` | Agent lifecycle, config dataclasses |
 | `agents/ingestion_agent/bigpanda_jobs_fetcher.py` | BigPanda download loop and DB persistence |
-| `agents/ingestion_agent/cli.py` | CLI entry point (`askpanda-ingestion-agent`) |
+| `agents/ingestion_agent/cli.py` | CLI entry point (`bamboo-ingestion`) |
 | `common/storage/schema.py` | DuckDB DDL — single source of truth for all table schemas |
 | `common/storage/duckdb_store.py` | Low-level DuckDB helpers (snapshots table, generic write) |
 | `common/panda/source.py` | File and URL fetching with content hashing |
@@ -387,6 +414,7 @@ The test suite covers:
 - Empty API response does not raise.
 - Inter-queue `time.sleep` is called exactly once between two queues, and not at all after the last queue.
 - A failing queue does not prevent remaining queues from being fetched.
+- **Transaction safety** — all three tables are updated atomically; a simulated mid-write failure triggers ROLLBACK, leaving the previous committed data intact with no partial updates.
 
 HTTP calls are mocked with `unittest.mock.patch` so no network access is required during tests.
 

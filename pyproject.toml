@@ -3,9 +3,9 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "askpanda-atlas-agents"
-version = "0.1.0"
-description = "AskPanDA Agents"
+name = "bamboo-mcp-services"
+version = "1.0.0"
+description = "Bamboo MCP Services"
 requires-python = ">=3.10"
 dependencies = [
     "duckdb>=0.10",
@@ -28,5 +28,8 @@ package-dir = {"" = "src"}
 where = ["src"]
 
 [project.scripts]
-askpanda-document-monitor-agent = "askpanda_atlas_agents.agents.document_monitor_agent.cli:main"
-askpanda-ingestion-agent = "askpanda_atlas_agents.agents.ingestion_agent.cli:main"
+bamboo-document-monitor = "bamboo_mcp_services.agents.document_monitor_agent.cli:main"
+bamboo-github-sync = "bamboo_mcp_services.agents.github_doc_sync_agent.cli:main"
+bamboo-ingestion = "bamboo_mcp_services.agents.ingestion_agent.cli:main"
+bamboo-cric = "bamboo_mcp_services.agents.cric_agent.cli:main"
+bamboo-dummy = "bamboo_mcp_services.agents.dummy_agent.cli:main"

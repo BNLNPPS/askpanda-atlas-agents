@@ -6,7 +6,7 @@ A production-oriented agent that watches a directory for new or changed document
 
 ## What it does
 
-- Monitors a directory (non-recursive) for file changes via polling.
+- Monitors a directory (including all subdirectories) for file changes via polling.
 - Extracts text from `.pdf`, `.docx`, `.txt`, and `.md` files.
 - Splits text into overlapping character chunks.
 - Generates deterministic chunk IDs (stable across re-ingestion).
@@ -38,7 +38,7 @@ This prevents stale vectors from being retrieved by RAG and reduces hallucinatio
 
 ## Installation & setup
 
-Follow these steps in order. The `askpanda-document-monitor-agent` command will not be available until all steps are complete.
+Follow these steps in order. The `bamboo-document-monitor` command will not be available until all steps are complete.
 
 ### Step 1 — Install Miniforge
 
@@ -57,15 +57,15 @@ Restart your terminal after running `conda init`. Alternatively, download the in
 
 **Apple Silicon:**
 ```bash
-conda create -n askpanda python=3.12 -y
-conda activate askpanda
+conda create -n bamboo-mcp-services python=3.12 -y
+conda activate bamboo-mcp-services
 conda install -c conda-forge -c pytorch pytorch cpuonly -y
 ```
 
 **Intel macOS:**
 ```bash
-conda create -n askpanda python=3.12 -y
-conda activate askpanda
+conda create -n bamboo-mcp-services python=3.12 -y
+conda activate bamboo-mcp-services
 conda install -c pytorch -c conda-forge pytorch -y
 ```
 
@@ -80,7 +80,7 @@ pip install -r requirements.txt
 
 ### Step 4 — Install the package
 
-This registers the `askpanda-document-monitor-agent` CLI command:
+This registers the `bamboo-document-monitor` CLI command:
 
 ```bash
 pip install -e .
@@ -90,25 +90,42 @@ pip install -e .
 
 ## Running the agent
 
+### One-shot (recommended for cron and pipeline use)
+
+Process all new or changed files once and exit:
+
 ```bash
-askpanda-document-monitor-agent --dir ./documents --poll-interval 10 --chroma-dir .chromadb
+bamboo-document-monitor --dir ./documents --chroma-dir .chromadb --once
 ```
 
-Or via module:
+This is the recommended mode when running after `bamboo-github-sync` in a
+pipeline or cron job — it processes whatever was downloaded and exits cleanly.
+
+### Long-running daemon
+
+Poll continuously, picking up new files as they arrive:
 
 ```bash
-python -m askpanda_atlas_agents.agents.document_monitor_agent.cli --dir ./documents
+bamboo-document-monitor --dir ./documents --poll-interval 10 --chroma-dir .chromadb
+```
+
+Stop with Ctrl-C or SIGTERM.
+
+### Via module
+
+```bash
+python -m bamboo_mcp_services.agents.document_monitor_agent.cli --dir ./documents --once
 ```
 
 > **First run on a new machine:** the agent loads the embedding model from local cache and avoids network calls on startup. This means the model must be downloaded at least once first. On a fresh machine, trigger the download by running with `HF_HUB_OFFLINE=0`:
 > ```bash
-> HF_HUB_OFFLINE=0 askpanda-document-monitor-agent --dir ./documents --poll-interval 10 --chroma-dir .chromadb
+> HF_HUB_OFFLINE=0 bamboo-document-monitor --dir ./documents --poll-interval 10 --chroma-dir .chromadb
 > ```
 > Subsequent runs will use the cached model automatically and do not need the flag.
 
 > **Always use an absolute path for `--chroma-dir`** to avoid the database being written to a different location depending on the working directory:
 > ```bash
-> askpanda-document-monitor-agent --dir /abs/path/to/docs --chroma-dir /abs/path/to/.chromadb
+> bamboo-document-monitor --dir /abs/path/to/docs --chroma-dir /abs/path/to/.chromadb
 > ```
 
 ---
@@ -128,7 +145,7 @@ To re-ingest cleanly:
 rm -rf .chromadb .document_monitor/checkpoints.json
 
 # 2. Re-run the agent — it will process all files from scratch
-askpanda-document-monitor-agent --dir /abs/path/to/docs --chroma-dir /abs/path/to/.chromadb
+bamboo-document-monitor --dir /abs/path/to/docs --chroma-dir /abs/path/to/.chromadb
 ```
 
 ---
@@ -138,7 +155,7 @@ askpanda-document-monitor-agent --dir /abs/path/to/docs --chroma-dir /abs/path/t
 Once set up, you only need to activate the environment at the start of each session:
 
 ```bash
-conda activate askpanda
+conda activate bamboo-mcp-services
 ```
 
 To verify everything is in order:
@@ -152,7 +169,7 @@ If a virtualenv is currently active, deactivate it first — only one environmen
 
 ```bash
 deactivate
-conda activate askpanda
+conda activate bamboo-mcp-services
 ```
 
 ---
@@ -166,12 +183,13 @@ conda activate askpanda
 
 | Option | Default | Description |
 |---|---|---|
-| `--dir` | *(required)* | Directory to monitor |
-| `--poll-interval` | `10` | Poll interval in seconds |
+| `--dir` | *(required)* | Directory to monitor (all subdirectories are included) |
+| `--poll-interval` | `10` | Poll interval in seconds (daemon mode only) |
 | `--chroma-dir` | `.chromadb` | ChromaDB persistence directory |
 | `--checkpoint-file` | `.document_monitor/checkpoints.json` | JSON checkpoint path |
 | `--chunk-size` | `3000` | Characters per chunk |
 | `--chunk-overlap` | `300` | Overlap between chunks |
+| `--once` | off | Run a single poll cycle then exit |
 
 ---
 
